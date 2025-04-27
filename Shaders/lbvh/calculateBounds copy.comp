@@ -1,0 +1,125 @@
+#version 460 core
+
+layout(local_size_x = 32) in;
+
+// BVH node structure (same as in your first shader)
+struct BVHNode
+{
+    float minX, minY, minZ;    // 12 bytes - bounding box min point
+    float maxX, maxY, maxZ;    // 12 bytes - bounding box max point
+    int leftChildOrPrimOffset;  // 4 bytes - child node index or triangleId offset if negative
+    int rightChildOrPrimCount;  // 4 bytes - right child index or primitive count when leftChildOrPrimOffset < 0
+};
+
+// BVH nodes buffer (same binding as your first shader)
+layout(std430, binding = 24) buffer bvhNodes {
+    BVHNode nodes[];
+};
+
+// Uniforms
+uniform uint numFaces;
+uniform int currentLevel; // Which level of the tree we're currently processing
+
+// void main()
+// {
+//     uint gID = gl_GlobalInvocationID.x;
+//     const uint numInternalNodes = numFaces - 1;
+    
+//     // Only process internal nodes
+//     if (gID >= numInternalNodes) return;
+    
+//     // For a binary tree with level-order traversal, nodes at a specific
+//     // level start at index 2^level - 1 and there are 2^level nodes at that level
+//     uint levelStart = (1u << currentLevel) - 1;
+//     uint levelSize = 1u << currentLevel;
+    
+//     // Check if this thread should process a node at the current level
+//     uint levelIndex = gID - levelStart;
+//     if (levelIndex >= levelSize || gID >= numInternalNodes) return;
+    
+//     // Get the indices of this node's children
+//     int leftChildIdx = nodes[gID].leftChildOrPrimOffset;
+//     int rightChildIdx = nodes[gID].rightChildOrPrimCount;
+    
+//     // Make sure both children are valid
+//     if (leftChildIdx < 0 || rightChildIdx < 0) return;
+    
+//     // Update this node's AABB to encompass both children
+//     BVHNode leftChild = nodes[leftChildIdx];
+//     BVHNode rightChild = nodes[rightChildIdx];
+    
+//     nodes[gID].minX = min(leftChild.minX, rightChild.minX);
+//     nodes[gID].minY = min(leftChild.minY, rightChild.minY);
+//     nodes[gID].minZ = min(leftChild.minZ, rightChild.minZ);
+//     nodes[gID].maxX = max(leftChild.maxX, rightChild.maxX);
+//     nodes[gID].maxY = max(leftChild.maxY, rightChild.maxY);
+//     nodes[gID].maxZ = max(leftChild.maxZ, rightChild.maxZ);
+// }
+
+
+void main()
+{
+    // Process only nodes at the current level
+    uint levelStart = (1u << currentLevel) - 1;
+    uint levelEnd = min((1u << (currentLevel + 1)) - 2, numFaces - 2);
+    
+    // Calculate which node this thread should process
+    uint nodeIdx = levelStart + gl_GlobalInvocationID.x;
+    
+    // Only process if this thread maps to a valid node at this level
+    if (nodeIdx > levelEnd) return;
+    
+    // Get the indices of this node's children
+    int leftChildIdx = nodes[nodeIdx].leftChildOrPrimOffset;
+    int rightChildIdx = nodes[nodeIdx].rightChildOrPrimCount;
+    
+    // Make sure both children are valid
+    if (leftChildIdx >= 0 && rightChildIdx >= 0)
+    {
+        // Update this node's AABB to encompass both children
+        BVHNode leftChild = nodes[leftChildIdx];
+        BVHNode rightChild = nodes[rightChildIdx];
+        
+        nodes[nodeIdx].minX = min(leftChild.minX, rightChild.minX);
+        nodes[nodeIdx].minY = min(leftChild.minY, rightChild.minY);
+        nodes[nodeIdx].minZ = min(leftChild.minZ, rightChild.minZ);
+        nodes[nodeIdx].maxX = max(leftChild.maxX, rightChild.maxX);
+        nodes[nodeIdx].maxY = max(leftChild.maxY, rightChild.maxY);
+        nodes[nodeIdx].maxZ = max(leftChild.maxZ, rightChild.maxZ);
+    }
+}
+// void main()
+// {
+//     uint gID = gl_GlobalInvocationID.x;
+//     const uint numInternalNodes = numFaces - 1;
+    
+//     // Only process internal nodes
+//     if (gID >= numInternalNodes) return;
+    
+//     // For a binary tree with level-order traversal, nodes at a specific
+//     // level start at index 2^level - 1 and there are 2^level nodes at that level
+//     uint levelStart = (1u << currentLevel) - 1;
+//     uint levelSize = 1u << currentLevel;
+    
+//     // Check if this thread should process a node at the current level
+//     uint levelIndex = gID - levelStart;
+//     if (levelIndex >= levelSize) return;
+    
+//     // Get the indices of this node's children
+//     int leftChildIdx = nodes[gID].leftChildOrPrimOffset;
+//     int rightChildIdx = nodes[gID].rightChildOrPrimCount;
+    
+//     // Make sure both children are valid
+//     if (leftChildIdx < 0 || rightChildIdx < 0) return;
+    
+//     // Update this node's AABB to encompass both children
+//     BVHNode leftChild = nodes[leftChildIdx];
+//     BVHNode rightChild = nodes[rightChildIdx];
+    
+//     nodes[gID].minX = min(leftChild.minX, rightChild.minX);
+//     nodes[gID].minY = min(leftChild.minY, rightChild.minY);
+//     nodes[gID].minZ = min(leftChild.minZ, rightChild.minZ);
+//     nodes[gID].maxX = max(leftChild.maxX, rightChild.maxX);
+//     nodes[gID].maxY = max(leftChild.maxY, rightChild.maxY);
+//     nodes[gID].maxZ = max(leftChild.maxZ, rightChild.maxZ);
+// }

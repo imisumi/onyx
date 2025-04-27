@@ -1,0 +1,212 @@
+#version 460 core
+
+// Define the workgroup size - for triangles, we only need 1 thread per triangle
+layout(local_size_x = 32) in;
+
+// SSBOs for mesh data
+layout(std430, binding = 20) buffer meshPositions {
+    float positions[]; // Flat array of vertex positions
+};
+
+layout(std430, binding = 21) buffer meshNormals {
+    float normals[]; // Flat array of vertex normals
+};
+
+layout(std430, binding = 22) buffer meshIndices {
+    uint indices[]; // Flat array of triangle indices
+};
+
+struct BVHNode
+{
+	float minX, minY, minZ;    // 12 bytes - bounding box min point
+	float maxX, maxY, maxZ;    // 12 bytes - bounding box max point
+	int leftChildOrPrimOffset;  // 4 bytes - child node index or triangleId offset if negative
+	int rightChildOrPrimCount;  // 4 bytes - right child index or primitive count when leftChildOrPrimOffset < 0
+};
+
+struct BVHNodeRender
+{
+	float minX, minY, minZ;    // 12 bytes - bounding box min point
+	float maxX, maxY, maxZ;    // 12 bytes - bounding box max point
+	int level;
+	int leaf;
+};
+
+layout(std430, binding = 24) buffer reccAABB {
+    BVHNode nodes[];
+};
+
+const float INFINITY = uintBitsToFloat(0x7F800000);
+
+struct MeshInfo
+{
+	uint positionOffset; // Offset into the positions array
+	uint normalOffset;	 // Offset into the normals array
+	uint indexOffset;	 // Offset into the indices array
+	uint numVertices;	 // Number of vertices in this mesh
+	uint numIndices;	 // Number of indices in this mesh
+	uint numFaces;		 // Number of triangles (numIndices / 3)
+	uint bvhNodeOffset;	 // Offset into the BVH nodes array for this mesh
+	uint aabbOffset;	 // Offset into the AABB array for this mesh
+};
+
+layout(std430, binding = 30) buffer meshInfo {
+    MeshInfo meshes[];
+};
+
+
+uniform mat4 model; // Added model matrix uniform
+// uniform uint numFaces;
+uniform uint meshIndex;
+
+// void calculate_min_max_leaf(uint gID, uint numFaces) {
+
+// 	MeshInfo mesh = meshes[meshIndex];
+
+
+// 	const uint numInternalNodes = numFaces - 1;
+// 	uint triangleIndex = gID - numInternalNodes;
+//     // Early out if we're beyond the triangle count
+//     // Each triangle has 3 indices, so divide by 3
+//     if (triangleIndex >= numFaces) return;
+    
+//     // Each triangle starts at a multiple of 3 in the indices array
+//     uint triangleBase = mesh.indexOffset + triangleIndex * 3; //? WIth offset
+//     uint indexA = indices[triangleBase] + mesh.indexOffset;
+//     uint indexB = indices[triangleBase + 1] + mesh.indexOffset;
+//     uint indexC = indices[triangleBase + 2] + mesh.indexOffset;
+
+//     // Get vertex positions
+//     vec3 v0 = vec3(positions[indexA * 3], positions[indexA * 3 + 1], positions[indexA * 3 + 2]);
+//     vec3 v1 = vec3(positions[indexB * 3], positions[indexB * 3 + 1], positions[indexB * 3 + 2]);
+//     vec3 v2 = vec3(positions[indexC * 3], positions[indexC * 3 + 1], positions[indexC * 3 + 2]);
+    
+//     // Transform vertices by the model matrix
+//     vec3 v0Transformed = (model * vec4(v0, 1.0)).xyz;
+//     vec3 v1Transformed = (model * vec4(v1, 1.0)).xyz;
+//     vec3 v2Transformed = (model * vec4(v2, 1.0)).xyz;
+
+//     // Calculate AABB for transformed vertices
+//     vec3 aabbMin = min(min(v0Transformed, v1Transformed), v2Transformed);
+//     vec3 aabbMax = max(max(v0Transformed, v1Transformed), v2Transformed);
+
+// 	BVHNode node;
+// 	node.minX = aabbMin.x;
+// 	node.minY = aabbMin.y;
+// 	node.minZ = aabbMin.z;
+// 	node.maxX = aabbMax.x;
+// 	node.maxY = aabbMax.y;
+// 	node.maxZ = aabbMax.z;
+// 	// node.leftChildOrPrimOffset = -int(triangleBase);
+// 	node.leftChildOrPrimOffset = -int(mesh.indexOffset + triangleBase);
+// 	node.rightChildOrPrimCount = -1; // Placeholder for right child index or primitive count
+// 	// nodes[gID] = node; // Store the node in the BVH array
+// 	nodes[mesh.bvhNodeOffset + gID] = node;
+// }
+
+void calculate_min_max_leaf(uint gID, uint numFaces) {
+    MeshInfo mesh = meshes[meshIndex];
+    
+    const uint numInternalNodes = numFaces - 1;
+    uint triangleIndex = gID - numInternalNodes;
+    
+    // Early out if we're beyond the triangle count
+    if (triangleIndex >= numFaces) return;
+    
+    // Each triangle starts at a multiple of 3 in the indices array
+    uint triangleBase = triangleIndex * 3;
+    
+    // Get the indices for this triangle (with mesh's index offset)
+    uint indexA = indices[mesh.indexOffset + triangleBase];     // Get actual index from the indices array
+    uint indexB = indices[mesh.indexOffset + triangleBase + 1]; // Get actual index from the indices array
+    uint indexC = indices[mesh.indexOffset + triangleBase + 2]; // Get actual index from the indices array
+    
+    // Convert indices to position offsets (add mesh's position offset)
+    uint posA = mesh.positionOffset + indexA * 3;
+    uint posB = mesh.positionOffset + indexB * 3;
+    uint posC = mesh.positionOffset + indexC * 3;
+    
+    // Get vertex positions
+    vec3 v0 = vec3(positions[posA], positions[posA + 1], positions[posA + 2]);
+    vec3 v1 = vec3(positions[posB], positions[posB + 1], positions[posB + 2]);
+    vec3 v2 = vec3(positions[posC], positions[posC + 1], positions[posC + 2]);
+    
+    // Transform vertices by the model matrix
+    vec3 v0Transformed = (model * vec4(v0, 1.0)).xyz;
+    vec3 v1Transformed = (model * vec4(v1, 1.0)).xyz;
+    vec3 v2Transformed = (model * vec4(v2, 1.0)).xyz;
+    
+    // Calculate AABB for transformed vertices
+    vec3 aabbMin = min(min(v0Transformed, v1Transformed), v2Transformed);
+    vec3 aabbMax = max(max(v0Transformed, v1Transformed), v2Transformed);
+    
+    // Store the node at the correct offset
+    uint nodeIndex = mesh.bvhNodeOffset + gID;
+    BVHNode node;
+    node.minX = aabbMin.x;
+    node.minY = aabbMin.y;
+    node.minZ = aabbMin.z;
+    node.maxX = aabbMax.x;
+    node.maxY = aabbMax.y;
+    node.maxZ = aabbMax.z;
+    node.leftChildOrPrimOffset = -int(mesh.indexOffset + triangleBase); // Store triangle offset
+    node.rightChildOrPrimCount = -1;
+    
+    nodes[nodeIndex] = node;
+}
+
+void main()
+{
+    uint gID = gl_GlobalInvocationID.x;
+
+	MeshInfo mesh = meshes[meshIndex];
+    uint numFaces = mesh.numFaces;
+    // Early exit if beyond total node count
+    const uint numNodes = numFaces * 2 - 1;
+    if (gID >= numNodes) return;
+    
+    const uint numInternalNodes = numFaces - 1;
+
+    // Initialize all node fields
+    // nodes[gID].minX = INFINITY;
+    // nodes[gID].minY = INFINITY;
+    // nodes[gID].minZ = INFINITY;
+    // nodes[gID].maxX = -INFINITY;
+    // nodes[gID].maxY = -INFINITY;
+    // nodes[gID].maxZ = -INFINITY;
+	nodes[mesh.bvhNodeOffset + gID].minX = 999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].minY = 999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].minZ = 999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].maxX = -999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].maxY = -999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].maxZ = -999999.0f;
+    nodes[mesh.bvhNodeOffset + gID].leftChildOrPrimOffset = -1;
+    nodes[mesh.bvhNodeOffset + gID].rightChildOrPrimCount = -1;
+
+    if (gID < numInternalNodes)
+    {
+        // Internal node processing
+        uint leftChildLogical = 2 * gID + 1;
+        uint rightChildLogical = 2 * gID + 2;
+
+        // Left child assignment
+        if (leftChildLogical < numInternalNodes) {
+			nodes[mesh.bvhNodeOffset + gID].leftChildOrPrimOffset = int(mesh.bvhNodeOffset + leftChildLogical);
+		} else {
+			uint leafIndex = leftChildLogical - numInternalNodes;
+			nodes[mesh.bvhNodeOffset + gID].leftChildOrPrimOffset = int(mesh.bvhNodeOffset + numInternalNodes + leafIndex);
+		}
+
+        // Right child assignment
+        if (rightChildLogical < numInternalNodes) {
+            nodes[mesh.bvhNodeOffset + gID].rightChildOrPrimCount = int(mesh.bvhNodeOffset + rightChildLogical);
+        } else {
+            uint leafIndex = rightChildLogical - numInternalNodes;
+            nodes[mesh.bvhNodeOffset + gID].rightChildOrPrimCount = int(mesh.bvhNodeOffset + numInternalNodes + leafIndex);
+        }
+    }
+    else
+    {
+        calculate_min_max_leaf(gID, numFaces);
+    }
+}
