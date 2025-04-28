@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <memory>
 
-#include "Shader.h"
+#include "shaders/Shader.h"
 
 #include <glm/glm.hpp>
 

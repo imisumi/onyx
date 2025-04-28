@@ -10,7 +10,7 @@
 #include <fstream>
 #include <sstream>
 
-#include "Base.h"
+#include "core/Base.h"
 
 void Shader::CreateProgram(GLuint vertexShader, GLuint fragmentShader)
 {

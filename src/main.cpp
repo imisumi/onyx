@@ -21,26 +21,26 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "Camera.h"
+#include "renderer/Camera.h"
 
-#include "Shader.h"
+#include "shaders/Shader.h"
 
-#include "Base.h"
+#include "core/Base.h"
 
 #include <iostream>
-#include "ShaderStorageBuffer.h"
-#include "ComputeShader.h"
-#include "VertexBuffer.h"
-#include "IndexBuffer.h"
-#include "VertexArray.h"
+#include "buffer/ShaderStorageBuffer.h"
+#include "shaders/ComputeShader.h"
+#include "buffer/VertexBuffer.h"
+#include "buffer/IndexBuffer.h"
+#include "buffer/VertexArray.h"
 
-#include "Renderer.h"
+#include "renderer/Renderer.h"
 
-#include "Mesh.h"
+#include "scene/Mesh.h"
 
-#include "Material.h"
+#include "renderer/Material.h"
 
-#include "Scene.h"
+#include "scene/Scene.h"
 
 static void glfw_error_callback(int error, const char *description)
 {
@@ -227,9 +227,6 @@ int main(int, char **)
 
 	// MaterialLibrary materialLibrary;
 	std::shared_ptr<MaterialLibrary> m_MaterialLibrary = std::make_shared<MaterialLibrary>();
-	std::shared_ptr<Material> triMat = Material::Create(Shader::Create("TriangleShader", "Shaders/triangle.vert", "Shaders/triangle.frag"));
-	triMat->SetName("TriangleMaterial");
-	m_MaterialLibrary->AddMaterial(triMat);
 
 	for (const auto &[name, material] : *m_MaterialLibrary)
 	{
@@ -238,71 +235,9 @@ int main(int, char **)
 
 	std::shared_ptr<ShaderLibrary> shaderLibrary = std::make_shared<ShaderLibrary>();
 	shaderLibrary->Add(Shader::Create("GridShader", "Shaders/grid.vert", "Shaders/grid.frag", "Shaders/grid.geom"));
-	shaderLibrary->Add(Shader::Create("TriangleShader", "Shaders/triangle.vert", "Shaders/triangle.frag"));
+	shaderLibrary->Add(Shader::Create("GridShader2", "Shaders/viewport/grid.vert", "Shaders/viewport/grid.frag"));
 	GLuint gridVAO;
 	glGenVertexArrays(1, &gridVAO);
-	// Define vertices for two separate triangles
-	float triangleVertices[] = {
-		// First triangle (centered at x = -1)
-		-1.5f, -1.0f, -0.5f, // left vertex
-		-0.5f, 0.0f, -0.5f,	 // right vertex
-		-1.0f, 0.0f, 0.5f,	 // top vertex
-
-		// Second triangle (centered at x = 1)
-		0.5f, 0.0f, -0.5f, // left vertex
-		1.5f, 0.0f, -0.5f, // right vertex
-		1.0f, 0.0f, 0.5f   // top vertex
-	};
-
-	// Define indices for the two triangles
-	GLuint indices[] = {
-		0, 1, 2, // First triangle
-		3, 4, 5	 // Second triangle
-	};
-
-	ShaderStorageBuffer triangle_vertices_buffer;
-	triangle_vertices_buffer.init(triangleVertices, static_cast<uint32_t>(sizeof(triangleVertices)), 5, GL_STATIC_DRAW);
-
-	ShaderStorageBuffer triangle_indices_buffer;
-	triangle_indices_buffer.init(indices, static_cast<uint32_t>(sizeof(indices)), 6, GL_STATIC_DRAW);
-
-	float testData[1024];
-	ShaderStorageBuffer aabbBuffer;
-	// aabbBuffer.init(testData, sizeof(testData), 1, GL_STATIC_DRAW);
-	aabbBuffer.initEmpty(static_cast<uint32_t>(sizeof(testData)), 7, GL_STREAM_DRAW);
-
-
-	shaderLibrary->Add(Shader::Create("BvhShader", "Shaders/bvh.vert", "Shaders/bvh.frag", "Shaders/bvh.geom"));
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	struct bvhNode
-	{
-		float minX, minY, minZ;	   // 12 bytes - bounding box min point
-		float maxX, maxY, maxZ;	   // 12 bytes - bounding box max point
-		int leftChildOrPrimOffset; // 4 bytes - child node index or triangleId offset if negative
-		int rightChildOrPrimCount; // 4 bytes - right child index or primitive count when leftChildOrPrimOffset < 0
-	};
-
-	struct BVHNode
-	{
-		float minX, minY, minZ;
-		float maxX, maxY, maxZ;
-		int leftChildOrPrimOffset;
-		int rightChildOrPrimCount;
-	};
-
-	// Create an array of BVHNode structs
-	BVHNode bvhNodes[] = {
-		{-1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1, 2},
-		{-2.0f, -2.0f, -2.0f, 0.0f, 1.0f, 1.0f, -1, -1},
-		{-1.0f, 5.0f, 0.0f, 3.0f, 1.0f, 1.0f, -1, -1}};
-	// Use the struct array to create the buffer
-
-	ShaderStorageBuffer bvhBuffer;
-	bvhBuffer.init(bvhNodes, static_cast<uint32_t>(sizeof(bvhNodes)), 0, GL_STATIC_DRAW);
 
 	// Grid parameters
 	float gridSize = 10.0f;
@@ -332,6 +267,12 @@ int main(int, char **)
 
 	float previousTime = static_cast<float>(glfwGetTime());
 	float deltaTime = 0.0f;
+
+	//? new grid vao
+	uint32_t newGridVAO;
+	glGenVertexArrays(1, &newGridVAO);
+	glBindVertexArray(newGridVAO);
+	glBindVertexArray(0);
 
 	ComputeShader computeShader;
 	computeShader.LoadFromFile("Shaders/aabb.compute");
@@ -403,65 +344,44 @@ int main(int, char **)
 
 		Renderer::BeginScene();
 
-		computeShader.Use();
-		computeShader.SetInt("numTriangles", 2);
-		computeShader.Dispatch(64, 1, 1); // Dispatch the compute shader with 1 work group in each dimension
-
 		if (!ImGui::GetIO().WantCaptureMouse && !ImGui::GetIO().WantCaptureKeyboard)
 		{
 			camera->Inputs(window, deltaTime);
 		}
 
 		// Render the grid if enabled
-		if (showGrid)
-		{
-			// auto gridShader = shaderLibrary->Get("GridShader");
-			std::shared_ptr<Shader> gridShader = shaderLibrary->Get("GridShader");
-			gridShader->Bind();
-
-			gridShader->SetMat4("viewProj", camera->Matrix(45.0f, 0.1f, 100.0f));
-			gridShader->SetFloat("gridSize", gridSize);
-			gridShader->SetFloat("gridSpacing", gridSpacing);
-
-			glBindVertexArray(gridVAO);
-			glDrawArrays(GL_POINTS, 0, 1); // Draw a single point, geometry shader creates the grid
-			glBindVertexArray(0);
-		}
-
-
-		m_Scene->Render();
-
-		//? Render the cube
+		// if (showGrid)
 		// {
-		// 	std::shared_ptr<Shader> cubeShader = shaderLibrary->Get("CubeNormalShader");
-		// 	cubeShader->Bind();
+		// 	// auto gridShader = shaderLibrary->Get("GridShader");
+		// 	std::shared_ptr<Shader> gridShader = shaderLibrary->Get("GridShader");
+		// 	gridShader->Bind();
 
-		// 	glm::mat4 model = glm::mat4(1.0f);
-		// 	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-		// 	// model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-		// 	model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-		// 	model = glm::scale(model, glm::vec3(1.0f));
+		// 	gridShader->SetMat4("viewProj", camera->Matrix(45.0f, 0.1f, 100.0f));
+		// 	gridShader->SetFloat("gridSize", gridSize);
+		// 	gridShader->SetFloat("gridSpacing", gridSpacing);
 
-		// 	cubeShader->SetMat4("viewProj", camera.Matrix(45.0f, 0.1f, 100.0f));
-		// 	cubeShader->SetMat4("model", model);
-
-		// 	Renderer::Submit(cubeMesh->GetVertexArray());
+		// 	glBindVertexArray(gridVAO);
+		// 	glDrawArrays(GL_POINTS, 0, 1); // Draw a single point, geometry shader creates the grid
+		// 	glBindVertexArray(0);
 		// }
 
-		// Draw BVH nodes
-		if (0)
-		{
-			std::shared_ptr<Shader> bvhShader = shaderLibrary->Get("BvhShader");
-			bvhShader->Bind();
+		auto newGridShader = shaderLibrary->Get("GridShader2");
+		newGridShader->Bind();
+		newGridShader->SetMat4("viewProjection", camera->Matrix(45.0f, 0.1f, 100.0f));
+		newGridShader->SetFloat3("cameraPosition", camera->GetPosition());
 
-			// Set the view projection matrix
-			bvhShader->SetMat4("viewProj", camera->Matrix(45.0f, 0.1f, 100.0f));
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-			// Draw the BVH nodes
-			glBindVertexArray(vao);
-			glDrawArrays(GL_POINTS, 0, 1); // Adjust the count as needed
-			glBindVertexArray(0);
-		}
+		// Draw the grid (4 vertices for a quad, using triangle strip)
+		glBindVertexArray(newGridVAO);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		glBindVertexArray(0);
+
+		// Restore state
+		glDisable(GL_BLEND);
+
+		m_Scene->Render();
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

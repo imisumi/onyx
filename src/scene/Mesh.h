@@ -1,12 +1,12 @@
 #pragma once
 
-#include "VertexArray.h"
+#include "buffer/VertexArray.h"
 
 #include <filesystem>
 
 #include <assimp/mesh.h>
 
-#include "Base.h"
+#include "core/Base.h"
 
 class Mesh
 {

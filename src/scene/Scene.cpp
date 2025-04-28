@@ -1,6 +1,6 @@
 #include "Scene.h"
 
-#include "Renderer.h"
+#include "renderer/Renderer.h"
 
 Scene::Scene()
 {
@@ -208,6 +208,8 @@ void Scene::Render()
 		Renderer::Submit(Mesh::CreateDefaultTriangle()->GetVertexArray());
 	}
 
+	// return ;
+
 	struct MeshInfo
 	{
 		uint32_t positionOffset; // Offset into the positions array
@@ -334,89 +336,8 @@ void Scene::Render()
 				m_Shader->SetUnsignedInt("meshIndex", meshIndex);
 
 				Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
-				// const uint32_t faceCount = meshInfo.numFaces;
-				// const uint32_t nodeCount = faceCount * 2 - 1;
-
-				// m_ComputeShader->Use();
-				// // m_ComputeShader->SetMat4("model", model);
-				// m_ComputeShader->SetMat4("model", glm::mat4(1.0f));
-				// m_ComputeShader->SetUnsignedInt("meshIndex", meshIndex);
-
-				// m_ComputeShader->Dispatch((nodeCount + 31) / 32, 1, 1);
-
-				// // //? BVH visulization
-				// int treeHeight = static_cast<int>(std::ceil(std::log2(faceCount)));
-				// m_ComputeCalcMinMax->Use();
-				// // m_ComputeCalcMinMax->SetUnsignedInt("numFaces", faceCount);
-
-				// for (int level = treeHeight - 1; level >= 0; level--)
-				// {
-				// 	m_ComputeCalcMinMax->SetInt("currentLevel", level);
-				// 	m_ComputeCalcMinMax->SetUnsignedInt("meshIndex", meshIndex);
-
-				// 	// Calculate the number of nodes at this level
-				// 	uint32_t levelStart = (1u << level) - 1;
-				// 	uint32_t levelEnd = std::min((1u << (level + 1)) - 2, faceCount - 2);
-				// 	uint32_t levelSize = levelEnd - levelStart + 1;
-
-				// 	// Dispatch enough threads to cover all nodes at this level
-				// 	uint32_t dispatchSize = (levelSize + 31) / 32;
-				// 	m_ComputeCalcMinMax->Dispatch(dispatchSize, 1, 1);
-
-				// 	// Ensure all writes are visible before processing the next level
-				// 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				// }
-
-				// m_Shader->Bind();
-				// m_Shader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
-				// m_Shader->SetUnsignedInt("meshIndex", meshIndex);
-
-				// // m_Shader->SetFloat("gridSize", 10.0f);
-				// // m_Shader->SetMat4("model", model);
-
-				// // Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), aabbCount);
-				// Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
 			}
 			meshIndex++;
 		}
-
-		// const uint32_t aabbCount = 12;
-		// const uint32_t aabbCount = 8711;
-		// const uint32_t aabbCount = 224;
-		// // const uint32_t
-		// m_ComputeShader->Use();
-		// m_ComputeShader->SetMat4("model", model);
-		// m_ComputeShader->SetUnsignedInt("meshIndex", 0);
-
-		// // m_ComputeShader->Dispatch(5000, 1, 1);
-		// const uint32_t totalNodes = aabbCount * 2 - 1;
-		// m_ComputeShader->Dispatch((totalNodes + 31) / 32, 1, 1);
-
-		// int treeHeight = static_cast<int>(std::ceil(std::log2(aabbCount)));
-		// m_ComputeCalcMinMax->Use();
-
-		// for (int level = treeHeight - 1; level >= 0; level--)
-		// {
-		// 	m_ComputeCalcMinMax->SetInt("currentLevel", level);
-
-		// 	// Calculate the number of nodes at this level
-		// 	uint32_t levelStart = (1u << level) - 1;
-		// 	uint32_t levelEnd = std::min((1u << (level + 1)) - 2, aabbCount - 2);
-		// 	uint32_t levelSize = levelEnd - levelStart + 1;
-
-		// 	// Dispatch enough threads to cover all nodes at this level
-		// 	uint32_t dispatchSize = (levelSize + 31) / 32;
-		// 	m_ComputeCalcMinMax->Dispatch(dispatchSize, 1, 1);
-
-		// 	// Ensure all writes are visible before processing the next level
-		// 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-		// }
-
-		// // ? Visualize the AABBs
-		// m_Shader->Bind();
-		// m_Shader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
-		// m_Shader->SetUnsignedInt("meshIndex", 0);
-
-		// Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), totalFaces);
 	}
 }

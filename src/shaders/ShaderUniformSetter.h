@@ -7,7 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <GL/glew.h>
 
-#include "Base.h"
+#include "core/Base.h"
 
 template <typename DerivedShader>
 class ShaderUniformSetter

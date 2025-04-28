@@ -3,21 +3,20 @@
 #include <memory>
 #include <string>
 
-#include "Material.h"
-#include "Shader.h"
+#include "renderer/Material.h"
+#include "shaders/Shader.h"
 
 #include "Mesh.h"
-#include "Camera.h"
+#include "renderer/Camera.h"
 
-#include "Object3D.h"
+#include "renderer/Object3D.h"
 
 #include "imgui/imgui.h"
 
-#include "ShaderStorageBuffer.h"
+#include "buffer/ShaderStorageBuffer.h"
 
 
-#include "Shader.h"
-#include "ComputeShader.h"
+#include "shaders/ComputeShader.h"
 
 class Scene
 {

@@ -7,7 +7,7 @@
 
 #include "Mesh.h"
 
-#include "UUID.h"
+#include "core/UUID.h"
 
 #include <glm/glm.hpp>
 

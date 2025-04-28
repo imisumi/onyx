@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 
-#include "ShaderUniformSetter.h"
+#include "shaders/ShaderUniformSetter.h"
 
 class ComputeShader : public ShaderUniformSetter<ComputeShader>
 {

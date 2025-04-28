@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 
 
-#include "ShaderUniformSetter.h"
+#include "shaders/ShaderUniformSetter.h"
 
 class Shader : public ShaderUniformSetter<Shader>
 {
