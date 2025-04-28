@@ -37,9 +37,21 @@ public:
 	// Camera constructor to set up initial values
 	Camera(int width, int height, glm::vec3 position);
 	glm::mat4 Matrix(float FOVdeg, float nearPlane, float farPlane);
+
+	glm::mat4 GetViewMatrix() const
+	{
+		return glm::lookAt(Position, Position + Orientation, Up);
+	} // Returns the view matrix
+	glm::mat4 GetProjectionMatrix(float FOVdeg, float nearPlane, float farPlane) const
+	{
+		return glm::perspective(glm::radians(FOVdeg), (float)width / height, nearPlane, farPlane);
+	} // Returns the projection matrix
 	// Updates and exports the camera matrix to the Vertex Shader
 	// void Matrix(float FOVdeg, float nearPlane, float farPlane, Shader& shader, const char* uniform);
 	// Handles camera inputs
 	void Inputs(GLFWwindow* window, float deltaTime);
+
+	void SetWidth(int w) { width = w; } // Sets the width of the window
+	void SetHeight(int h) { height = h; } // Sets the height of the window
 };
 #endif
