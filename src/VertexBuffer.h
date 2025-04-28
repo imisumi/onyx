@@ -153,7 +153,7 @@ class VertexBuffer
 public:
 	VertexBuffer(float *vertices, uint32_t size);
 	VertexBuffer(const std::vector<float> &vertices);
-	~VertexBuffer() {}
+	~VertexBuffer();
 
 	void Bind() const;
 	void Unbind() const;

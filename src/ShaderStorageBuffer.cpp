@@ -81,6 +81,8 @@
 #include <GL/glew.h>
 #include <cstring> // For memcpy
 
+#include "Base.h"
+
 ShaderStorageBuffer::ShaderStorageBuffer()
 	: m_id(0), m_size(0), m_occupied_size(0), m_bindingPoint(0), m_initialized(false)
 {
@@ -192,6 +194,7 @@ void ShaderStorageBuffer::pushData(const void *data, size_t dataSize, GLenum usa
         if (newSize < m_occupied_size + dataSize)
             newSize = m_occupied_size + dataSize;
             
+		LOG_INFO("Resizing SSBO from {0} to {1}", m_size, newSize);
         // Resize the buffer
         resize(newSize, usage);
     }

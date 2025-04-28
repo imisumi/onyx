@@ -16,7 +16,7 @@ public:
 
 	void Init(const std::vector<float> &vertices, const std::vector<uint32_t> &indices, BufferLayout layout);
 
-	const std::shared_ptr<VertexArray> &GetVertexArray() const { return m_VertexArray; }
+	std::shared_ptr<VertexArray> GetVertexArray() const { return m_VertexArray; }
 
 	static std::shared_ptr<Mesh> CreateDefaultCube();
 	static std::shared_ptr<Mesh> CreateWireframeCube();

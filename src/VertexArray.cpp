@@ -44,8 +44,8 @@ VertexArray::VertexArray()
 
 VertexArray::~VertexArray()
 {
+	glDeleteVertexArrays(1, &m_ProgramId);
 }
-
 void VertexArray::Bind() const
 {
 	glBindVertexArray(m_ProgramId);
