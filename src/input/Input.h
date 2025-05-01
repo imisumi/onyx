@@ -1,32 +1,18 @@
-// #pragma once
+#pragma once
 
-// // #include
-// // header for std::pair
-// #include <iostream>
-// #include <utility>
+#include <iostream>
+#include <utility>
 
-// class Input
-// {
-// public:
-// 	inline static bool IsKeyPressed(int keycode) { return s_Instance->IsKeyPressedImpl(keycode); }
+#include "KeyCodes.h"
+#include "MouseButtonCodes.h"
 
-// 	inline static bool IsMouseButtonPressed(int button) { return s_Instance->IsMouseButtonPressedImpl(button); }
+class Input
+{
+public:
+	static bool IsKeyPressed(Key keycode);
+	static bool IsMouseButtonPressed(MouseButton button);
+	static std::pair<float, float> GetMousePosition();
 
-// 	inline static std::pair<float, float> GetMousePosition() { return s_Instance->GetMousePositionImpl(); }
-
-// 	inline static float GetMouseX() { return s_Instance->GetMouseXImpl(); }
-// 	inline static float GetMouseY() { return s_Instance->GetMouseYImpl(); }
-
-// protected:
-// 	virtual bool IsKeyPressedImpl(int keycode) = 0;
-// 	virtual bool IsMouseButtonPressedImpl(int button) = 0;
-// 	virtual std::pair<float, float> GetMousePositionImpl() = 0;
-// 	virtual float GetMouseXImpl() = 0;
-// 	virtual float GetMouseYImpl() = 0;
-
-// 	// static Input* Create();
-// 	// friend class Application;
-
-// private:
-// 	static Input *s_Instance;
-// };
+	static void SetCursorMode(CursorMode mode);
+	static void SetCursorPosition(float x, float y);
+};

@@ -1,21 +1,24 @@
 #pragma once
 
-// From glfw.h
-#define RNDR_MOUSE_BUTTON_1         0
-#define RNDR_MOUSE_BUTTON_2         1
-#define RNDR_MOUSE_BUTTON_3         2
-#define RNDR_MOUSE_BUTTON_4         3
-#define RNDR_MOUSE_BUTTON_5         4
-#define RNDR_MOUSE_BUTTON_6         5
-#define RNDR_MOUSE_BUTTON_7         6
-#define RNDR_MOUSE_BUTTON_8         7
-#define RNDR_MOUSE_BUTTON_LAST      RNDR_MOUSE_BUTTON_8
-#define RNDR_MOUSE_BUTTON_LEFT      RNDR_MOUSE_BUTTON_1
-#define RNDR_MOUSE_BUTTON_RIGHT     RNDR_MOUSE_BUTTON_2
-#define RNDR_MOUSE_BUTTON_MIDDLE    RNDR_MOUSE_BUTTON_3
+enum class MouseButton
+{
+	BUTTON_1 = 0,
+	BUTTON_2 = 1,
+	BUTTON_3 = 2,
+	BUTTON_4 = 3,
+	BUTTON_5 = 4,
+	BUTTON_6 = 5,
+	BUTTON_7 = 6,
+	BUTTON_8 = 7,
+	LAST = BUTTON_8,
+	LEFT = BUTTON_1,
+	RIGHT = BUTTON_2,
+	MIDDLE = BUTTON_3
+};
 
-// Cursor modes
-
-#define RNDR_CURSOR_NORMAL          0x00034001
-#define RNDR_CURSOR_HIDDEN          0x00034002
-#define RNDR_CURSOR_DISABLED        0x00034003
+enum class CursorMode
+{
+	Normal = 0x00034001,
+	Hidden = 0x00034002,
+	Disabled = 0x00034003
+};

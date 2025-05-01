@@ -92,6 +92,8 @@ static void APIENTRY debugCallback(GLenum source, GLenum type, GLuint id,
 		LOG_ERROR(debugMsg.c_str());
 		break;
 	case GL_DEBUG_SEVERITY_LOW:
+		// TODO: temp silence low severity messages
+		// break;
 		debugMsg += "Severity: low\n";
 		LOG_WARN(debugMsg.c_str());
 		break;

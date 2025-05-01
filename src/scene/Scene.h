@@ -7,7 +7,6 @@
 #include "shaders/Shader.h"
 
 #include "Mesh.h"
-#include "renderer/Camera.h"
 
 #include "renderer/Object3D.h"
 
@@ -15,8 +14,9 @@
 
 #include "buffer/ShaderStorageBuffer.h"
 
-
 #include "shaders/ComputeShader.h"
+
+#include "renderer/EditorCamera.h"
 
 class Scene
 {
@@ -37,7 +37,7 @@ public:
 	void Render();
 
 	void SetMesh(const std::shared_ptr<Mesh> &mesh) { m_CubeMesh = mesh; }
-	void SetCamera(const std::shared_ptr<Camera> &camera) { m_Camera = camera; }
+	void SetEditorCamera(const std::shared_ptr<EditorCamera> &editorCamera) { m_EditorCamera = editorCamera; }
 
 	// inline const std::string& GetName() const { return m_DebugName; }
 private:
@@ -47,7 +47,7 @@ private:
 
 	std::shared_ptr<Mesh> m_CubeMesh = std::make_shared<Mesh>();
 
-	std::shared_ptr<Camera> m_Camera;
+	std::shared_ptr<EditorCamera> m_EditorCamera;
 
 	std::vector<std::shared_ptr<Object3D>> m_RootObjects;
 	// std::unordered_map<uint32_t, std::weak_ptr<Object3D>> m_ObjectsById;

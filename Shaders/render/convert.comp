@@ -1,0 +1,28 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+layout(rgba32f, binding = 0) uniform readonly image2D inputImage;
+layout(rgba8, binding = 1) uniform writeonly image2D outputImage;
+
+void main()
+{
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    
+    // Get image dimensions to check bounds
+    ivec2 dimensions = imageSize(inputImage);
+    
+    if (pixelCoords.x < dimensions.x && pixelCoords.y < dimensions.y)
+    {
+        // Read RGBA32F value
+        vec4 hdrColor = imageLoad(inputImage, pixelCoords);
+        
+        // Simple tone mapping (for HDR values > 1.0)
+        vec3 ldrColor = hdrColor.rgb / (hdrColor.rgb + vec3(1.0));
+        
+        // Optional gamma correction
+        vec3 gammaCorrected = pow(ldrColor, vec3(1.0/2.2));
+        
+        // Store in RGBA8 texture
+        imageStore(outputImage, pixelCoords, vec4(gammaCorrected, hdrColor.a));
+    }
+}

@@ -1,44 +1,32 @@
-// #include "Input.h"
+#include "Input.h"
 
-// #include <GLFW/glfw3.h>
+#include "Application.h"
 
-// #include "Rndr/Application.h"
+#include <GLFW/glfw3.h>
 
-// namespace Rndr
-// {
-// 	Input* Input::s_Instance = new WindowsInput();
+bool Input::IsKeyPressed(Key keycode)
+{
+	return (glfwGetKey(Application::Get().GetWindow().GetNativeWindow(), static_cast<int>(keycode)) == GLFW_PRESS);
+}
 
-// 	bool WindowsInput::IsKeyPressedImpl(int keycode)
-// 	{
-// 		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-// 		auto state = glfwGetKey(window, keycode);
-// 		return state == GLFW_PRESS || state == GLFW_REPEAT;
-// 	}
+bool Input::IsMouseButtonPressed(MouseButton button)
+{
+	return (glfwGetMouseButton(Application::Get().GetWindow().GetNativeWindow(), static_cast<int>(button)) == GLFW_PRESS);
+}
 
-// 	bool WindowsInput::IsMouseButtonPressedImpl(int button)
-// 	{
-// 		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-// 		auto state = glfwGetMouseButton(window, button);
-// 		return state == GLFW_PRESS;
-// 	}
+std::pair<float, float> Input::GetMousePosition()
+{
+	double xpos, ypos;
+	glfwGetCursorPos(Application::Get().GetWindow().GetNativeWindow(), &xpos, &ypos);
+	return {(float)xpos, (float)ypos};
+}
 
-// 	std::pair<float, float> WindowsInput::GetMousePositionImpl()
-// 	{
-// 		auto window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-// 		double xpos, ypos;
-// 		glfwGetCursorPos(window, &xpos, &ypos);
-// 		return { (float)xpos, (float)ypos };
-// 	}
+void Input::SetCursorMode(CursorMode mode)
+{
+	return glfwSetInputMode(Application::Get().GetWindow().GetNativeWindow(), GLFW_CURSOR, static_cast<int>(mode));
+}
 
-// 	float WindowsInput::GetMouseXImpl()
-// 	{
-// 		auto [x, y] = GetMousePositionImpl();
-// 		return x;
-// 	}
-
-// 	float WindowsInput::GetMouseYImpl()
-// 	{
-// 		auto [x, y] = GetMousePositionImpl();
-// 		return y;
-// 	}
-// }
+void Input::SetCursorPosition(float x, float y)
+{
+	return glfwSetCursorPos(Application::Get().GetWindow().GetNativeWindow(), x, y);
+}

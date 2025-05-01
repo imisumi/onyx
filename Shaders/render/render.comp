@@ -1,0 +1,176 @@
+// #version 460 core
+
+// layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+// layout(rgba32f, binding = 0) uniform image2D imageOutput;
+
+// void main()
+// {
+//     // Get the current pixel coordinates
+//     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    
+//     // Get the dimensions of the output image
+//     ivec2 dimensions = imageSize(imageOutput);
+    
+//     // Only process pixels within the image bounds
+//     if (pixelCoords.x < dimensions.x && pixelCoords.y < dimensions.y)
+//     {
+//         // Calculate normalized UV coordinates (from 0 to 1)
+//         vec2 uv = vec2(pixelCoords) / vec2(dimensions - 1);
+        
+//         // Create a color using UV coordinates
+//         // R = U coordinate (increases from left to right)
+//         // G = V coordinate (increases from top to bottom)
+//         // B = 1.0 - U*V (creates a nice diagonal gradient)
+//         vec4 color = vec4(uv.x, uv.y, 1.0 - (uv.x * uv.y), 1.0);
+        
+//         // Store the color in the output image
+//         imageStore(imageOutput, pixelCoords, color);
+//     }
+// }
+
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+layout(rgba32f, binding = 0) uniform image2D imageOutput;
+
+// View-projection matrix uniform
+uniform mat4 viewProjectionMatrix;
+uniform mat4 viewProjectionInverseMatrix; // Inverse for ray generation
+
+// Ray structure
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+// Hit record structure
+struct HitRecord {
+    float t;
+    vec3 position;
+    vec3 normal;
+    bool hit;
+};
+
+// Hard-coded triangle on the floor
+const vec3 v0 = vec3(-3.0, -1.0, -2.0);
+const vec3 v1 = vec3(0.0, -1.0, -5.0);
+const vec3 v2 = vec3(3.0, -1.0, -2.0);
+const vec3 triangleNormal = normalize(cross(v1 - v0, v2 - v0));
+
+// Ray-triangle intersection function (Möller–Trumbore algorithm)
+bool intersectTriangle(Ray ray, vec3 v0, vec3 v1, vec3 v2, out HitRecord record) {
+    const float EPSILON = 0.0000001;
+    
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 h = cross(ray.direction, edge2);
+    float a = dot(edge1, h);
+    
+    // Check if ray is parallel to triangle
+    if (a > -EPSILON && a < EPSILON) {
+        return false;
+    }
+    
+    float f = 1.0 / a;
+    vec3 s = ray.origin - v0;
+    float u = f * dot(s, h);
+    
+    // Check if hit point is outside the triangle
+    if (u < 0.0 || u > 1.0) {
+        return false;
+    }
+    
+    vec3 q = cross(s, edge1);
+    float v = f * dot(ray.direction, q);
+    
+    // Check if hit point is outside the triangle
+    if (v < 0.0 || u + v > 1.0) {
+        return false;
+    }
+    
+    // Compute t (distance along ray)
+    float t = f * dot(edge2, q);
+    
+    // Check if intersection is behind ray origin
+    if (t <= EPSILON) {
+        return false;
+    }
+    
+    // Fill hit record
+    record.t = t;
+    record.position = ray.origin + t * ray.direction;
+    record.normal = triangleNormal;
+    record.hit = true;
+    
+    return true;
+}
+
+// Function to create a ray from camera through pixel
+Ray createCameraRay(ivec2 pixelCoords, ivec2 dimensions) {
+    // Convert pixel to NDC coordinates ([-1, 1])
+    vec2 uv = 2.0 * vec2(pixelCoords) / vec2(dimensions) - 1.0;
+    
+    // Create a point in clip space
+    vec4 clipPos = vec4(uv.x, -uv.y, 1.0, 1.0);
+    
+    // Transform to world space using inverse view-projection matrix
+    vec4 worldPos = viewProjectionInverseMatrix * clipPos;
+    worldPos /= worldPos.w; // Perspective divide
+    
+    // Create ray
+    Ray ray;
+    ray.origin = vec3(viewProjectionInverseMatrix[3]); // Camera position from matrix
+    ray.direction = normalize(vec3(worldPos) - ray.origin);
+    
+    return ray;
+}
+
+// Simple sky color function
+vec3 getSkyColor(vec3 direction) {
+    float t = 0.5 * (direction.y + 1.0);
+    return mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
+}
+
+// Main path tracing function
+vec3 trace(Ray ray) {
+    HitRecord record;
+    record.hit = false;
+    
+    // Check intersection with our triangle
+    if (intersectTriangle(ray, v0, v1, v2, record)) {
+        // Simple diffuse shading (floor triangle is green)
+        vec3 albedo = vec3(0.2, 0.8, 0.3);
+        
+        // Simple directional light from above
+        vec3 lightDir = normalize(vec3(0.5, 1.0, 0.2));
+        float diffuse = max(0.0, dot(record.normal, lightDir));
+        
+        // Ambient + diffuse lighting
+        return albedo * (0.2 + 0.8 * diffuse);
+    }
+    
+    // No hit, return sky color
+    return getSkyColor(ray.direction);
+}
+
+void main()
+{
+    // Get the current pixel coordinates
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    
+    // Get the dimensions of the output image
+    ivec2 dimensions = imageSize(imageOutput);
+    
+    // Only process pixels within the image bounds
+    if (pixelCoords.x < dimensions.x && pixelCoords.y < dimensions.y)
+    {
+        // Create a camera ray for this pixel
+        Ray ray = createCameraRay(pixelCoords, dimensions);
+        
+        // Trace the ray and get the color
+        vec3 color = trace(ray);
+        
+        // Store the color in the output image (with alpha = 1.0)
+        imageStore(imageOutput, pixelCoords, vec4(color, 1.0));
+    }
+}

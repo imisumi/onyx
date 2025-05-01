@@ -10,6 +10,13 @@ ComputeShader::ComputeShader()
 	: m_ProgramID(0), m_ShaderID(0)
 {
 }
+
+ComputeShader::ComputeShader(const std::string &filePath)
+	: m_ProgramID(0), m_ShaderID(0)
+{
+	LoadFromFile(filePath);
+}
+
 ComputeShader::~ComputeShader()
 {
 	if (m_ProgramID != 0)
@@ -76,9 +83,10 @@ bool ComputeShader::LoadFromFile(const std::string &filePath)
 
 	// Use a file reading method of your choice
 	// For example, using std::ifstream:
-	
+
 	std::ifstream file(filePath);
-	if (!file.is_open()) {
+	if (!file.is_open())
+	{
 		fprintf(stderr, "Failed to open file: %s\n", filePath.c_str());
 		return false;
 	}

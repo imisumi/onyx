@@ -12,6 +12,7 @@ class ComputeShader : public ShaderUniformSetter<ComputeShader>
 
 public:
 	ComputeShader();
+	ComputeShader(const std::string &filePath);
 	~ComputeShader();
 
 	// Core functionality
@@ -23,6 +24,11 @@ public:
 
 	// Getters
 	uint32_t GetProgramID() const { return m_ProgramID; }
+
+	static std::shared_ptr<ComputeShader> Create(const std::string &filePath)
+	{
+		return std::make_shared<ComputeShader>(filePath);
+	}
 
 private:
 	uint32_t m_ProgramID;

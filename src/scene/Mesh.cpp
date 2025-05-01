@@ -208,8 +208,8 @@ std::shared_ptr<Mesh> Mesh::CreateDefaultSphere(float radius, int latitudeSegmen
 
 	// Initialize the mesh
 	mesh->Init(vertexData, mesh->m_Indices, {
-										{ShaderDataType::Float3, "aPos"}, {ShaderDataType::Float3, "aNormal"} // Add more attributes as needed
-									});
+												{ShaderDataType::Float3, "aPos"}, {ShaderDataType::Float3, "aNormal"} // Add more attributes as needed
+											});
 	return mesh;
 }
 
@@ -380,9 +380,9 @@ std::shared_ptr<Mesh> Mesh::ExtractMesh(aiMesh *aiMesh)
 		vertexData.push_back(aiMesh->mVertices[i].z);
 
 		// Normal
-		// vertexData.push_back(aiMesh->mNormals[i].x);
-		// vertexData.push_back(aiMesh->mNormals[i].y);
-		// vertexData.push_back(aiMesh->mNormals[i].z);
+		vertexData.push_back(aiMesh->mNormals[i].x);
+		vertexData.push_back(aiMesh->mNormals[i].y);
+		vertexData.push_back(aiMesh->mNormals[i].z);
 	}
 
 	// for (auto i : mesh->m_Indices)
@@ -390,66 +390,64 @@ std::shared_ptr<Mesh> Mesh::ExtractMesh(aiMesh *aiMesh)
 	// 	LOG_INFO("Index: {0}", i);
 	// }
 
-	mesh->Init(vertexData, mesh->m_Indices, {{ShaderDataType::Float3, "aPos"}});
-	// mesh->Init(vertexData, mesh->m_Indices, {{ShaderDataType::Float3, "aPos"}, {ShaderDataType::Float3, "aNormal"}});
+	// mesh->Init(vertexData, mesh->m_Indices, {{ShaderDataType::Float3, "aPos"}});
+	mesh->Init(vertexData, mesh->m_Indices, {{ShaderDataType::Float3, "aPos"}, {ShaderDataType::Float3, "aNormal"}});
 
 	return mesh;
 }
 
 std::shared_ptr<Mesh> Mesh::CreateWireframeCube()
 {
-    auto mesh = std::make_shared<Mesh>();
+	auto mesh = std::make_shared<Mesh>();
 
-    // Define positions (8 unique corners)
-    const float halfSize = 1.0f; // Half size of the cube
-    std::vector<float> positions = {
-        -halfSize, -halfSize, halfSize,  // 0: front-bottom-left
-        halfSize, -halfSize, halfSize,   // 1: front-bottom-right
-        halfSize, halfSize, halfSize,    // 2: front-top-right
-        -halfSize, halfSize, halfSize,   // 3: front-top-left
-        -halfSize, -halfSize, -halfSize, // 4: back-bottom-left
-        halfSize, -halfSize, -halfSize,  // 5: back-bottom-right
-        halfSize, halfSize, -halfSize,   // 6: back-top-right
-        -halfSize, halfSize, -halfSize   // 7: back-top-left
-    };
+	// Define positions (8 unique corners)
+	const float halfSize = 1.0f; // Half size of the cube
+	std::vector<float> positions = {
+		-halfSize, -halfSize, halfSize,	 // 0: front-bottom-left
+		halfSize, -halfSize, halfSize,	 // 1: front-bottom-right
+		halfSize, halfSize, halfSize,	 // 2: front-top-right
+		-halfSize, halfSize, halfSize,	 // 3: front-top-left
+		-halfSize, -halfSize, -halfSize, // 4: back-bottom-left
+		halfSize, -halfSize, -halfSize,	 // 5: back-bottom-right
+		halfSize, halfSize, -halfSize,	 // 6: back-top-right
+		-halfSize, halfSize, -halfSize	 // 7: back-top-left
+	};
 
-    // Define indices for lines (12 edges of a cube)
-    std::vector<uint32_t> indices = {
-        0, 1,  // Front bottom
-        1, 2,  // Front right
-        2, 3,  // Front top
-        3, 0,  // Front left
-        
-        4, 5,  // Back bottom
-        5, 6,  // Back right
-        6, 7,  // Back top
-        7, 4,  // Back left
-        
-        0, 4,  // Bottom left
-        1, 5,  // Bottom right
-        2, 6,  // Top right
-        3, 7   // Top left
-    };
+	// Define indices for lines (12 edges of a cube)
+	std::vector<uint32_t> indices = {
+		0, 1, // Front bottom
+		1, 2, // Front right
+		2, 3, // Front top
+		3, 0, // Front left
 
-    // Create vertex data
-    std::vector<float> vertexData;
-    for (int i = 0; i < 8; i++) {
-        // Position
-        vertexData.push_back(positions[i * 3]);      // x
-        vertexData.push_back(positions[i * 3 + 1]);  // y
-        vertexData.push_back(positions[i * 3 + 2]);  // z
-        
-        // Normal (not really needed for lines, but keeping for compatibility)
-        vertexData.push_back(0.0f);
-        vertexData.push_back(0.0f);
-        vertexData.push_back(0.0f);
-    }
+		4, 5, // Back bottom
+		5, 6, // Back right
+		6, 7, // Back top
+		7, 4, // Back left
 
-    // Initialize the mesh with the vertex layout
-    mesh->Init(vertexData, indices, {
-        {ShaderDataType::Float3, "aPos"}, 
-        {ShaderDataType::Float3, "aNormal"}
-    });
+		0, 4, // Bottom left
+		1, 5, // Bottom right
+		2, 6, // Top right
+		3, 7  // Top left
+	};
 
-    return mesh;
+	// Create vertex data
+	std::vector<float> vertexData;
+	for (int i = 0; i < 8; i++)
+	{
+		// Position
+		vertexData.push_back(positions[i * 3]);		// x
+		vertexData.push_back(positions[i * 3 + 1]); // y
+		vertexData.push_back(positions[i * 3 + 2]); // z
+
+		// Normal (not really needed for lines, but keeping for compatibility)
+		vertexData.push_back(0.0f);
+		vertexData.push_back(0.0f);
+		vertexData.push_back(0.0f);
+	}
+
+	// Initialize the mesh with the vertex layout
+	mesh->Init(vertexData, indices, {{ShaderDataType::Float3, "aPos"}, {ShaderDataType::Float3, "aNormal"}});
+
+	return mesh;
 }

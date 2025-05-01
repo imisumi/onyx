@@ -175,7 +175,7 @@ void Scene::Render()
 		model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 		model = glm::scale(model, glm::vec3(1.0f));
 
-		cubeShader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
+		cubeShader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
 		cubeShader->SetMat4("model", model);
 
 		// Renderer::Submit(m_CubeMesh->GetVertexArray());
@@ -188,7 +188,7 @@ void Scene::Render()
 		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 		model = glm::scale(model, glm::vec3(1.0f));
 
-		cubeShader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
+		cubeShader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
 		cubeShader->SetMat4("model", model);
 
 		// Renderer::Submit(m_CubeMesh->GetVertexArray());
@@ -201,7 +201,7 @@ void Scene::Render()
 		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 		model = glm::scale(model, glm::vec3(1.0f));
 
-		cubeShader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
+		cubeShader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
 		cubeShader->SetMat4("model", model);
 
 		// Renderer::Submit(Mesh::CreateDefaultSphere()->GetVertexArray());
@@ -288,10 +288,9 @@ void Scene::Render()
 			// model = glm::scale(model, glm::vec3(1.0f));
 
 			shader->Bind();
-			shader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
+			shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
 			shader->SetMat4("model", model);
 			// shader->SetMat4("model", glm::mat4(1.0f));
-			// object->Render(m_Camera);
 			// object->GetMesh()->GetVertexArray()->Bind();
 			Renderer::Submit(object->GetMesh()->GetVertexArray());
 
@@ -332,7 +331,7 @@ void Scene::Render()
 
 				// ? Visualize the AABBs
 				m_Shader->Bind();
-				m_Shader->SetMat4("viewProj", m_Camera->Matrix(45.0f, 0.1f, 100.0f));
+				m_Shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
 				m_Shader->SetUnsignedInt("meshIndex", meshIndex);
 
 				Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
