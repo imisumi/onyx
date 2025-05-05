@@ -30,4 +30,5 @@ void main()
     
     // Regular position transformation
     gl_Position = viewProj * model * vec4(aPos, 1.0);
+    // gl_Position = viewProj * model * vec4(aPos, 1.0);
 }

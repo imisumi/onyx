@@ -35,9 +35,9 @@ private:
 	glm::vec3 playerPosition; // Current player position for infinite grid
 
 	// Store indices for axes
-	std::vector<int> _xAxisIndices;
-	std::vector<int> _zAxisIndices;
-	std::vector<int> _yAxisIndices;
+	std::vector<uint32_t> _xAxisIndices;
+	std::vector<uint32_t> _zAxisIndices;
+	std::vector<uint32_t> _yAxisIndices;
 
 	const char *vertexShaderSource = R"(
 		#version 330 core
@@ -163,9 +163,9 @@ private:
 	{
 		std::vector<float> vertices;
 		std::vector<float> isMainLine;
-		std::vector<int> xAxisIndices;
-		std::vector<int> zAxisIndices;
-		std::vector<int> yAxisIndices;
+		std::vector<uint32_t> xAxisIndices;
+		std::vector<uint32_t> zAxisIndices;
+		std::vector<uint32_t> yAxisIndices;
 
 		// Create horizontal lines (along X axis, varying Z)
 		for (int i = -gridSize; i <= gridSize; i++)
@@ -176,8 +176,8 @@ private:
 			// Track Z axis indices
 			if (isZAxis)
 			{
-				zAxisIndices.push_back(vertices.size() / 3);
-				zAxisIndices.push_back(vertices.size() / 3 + 1);
+				zAxisIndices.push_back(static_cast<uint32_t>(vertices.size() / 3));
+				zAxisIndices.push_back(static_cast<uint32_t>(vertices.size() / 3 + 1));
 			}
 
 			// Line start point
@@ -199,11 +199,13 @@ private:
 			bool isMain = (i % 10 == 0);
 			bool isXAxis = (i == 0); // This is the X axis (Z=0)
 
+			const uint32_t verticesSize = static_cast<uint32_t>(vertices.size());
+
 			// Track X axis indices
 			if (isXAxis)
 			{
-				xAxisIndices.push_back(vertices.size() / 3);
-				xAxisIndices.push_back(vertices.size() / 3 + 1);
+				xAxisIndices.push_back(verticesSize / 3);
+				xAxisIndices.push_back(verticesSize/ 3 + 1);
 			}
 
 			// Line start point
@@ -220,7 +222,7 @@ private:
 		}
 
 		// Add Y-axis (a vertical line at the origin)
-		int yAxisStartIndex = vertices.size() / 3;
+		uint32_t yAxisStartIndex = static_cast<uint32_t>(vertices.size()) / 3;
 
 		// Y-axis line from origin up to gridSize
 		vertices.push_back(0.0f);	// x
@@ -265,14 +267,13 @@ private:
 		// Set up Element Buffer Object for axis lines
 		glGenBuffers(1, &EBO);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-
 		// Combine all indices
 		std::vector<GLuint> allIndices;
-		for (int idx : xAxisIndices)
+		for (auto idx : xAxisIndices)
 			allIndices.push_back(idx);
-		for (int idx : zAxisIndices)
+		for (auto idx : zAxisIndices)
 			allIndices.push_back(idx);
-		for (int idx : yAxisIndices)
+		for (auto idx : yAxisIndices)
 			allIndices.push_back(idx);
 
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, allIndices.size() * sizeof(GLuint), allIndices.data(), GL_STATIC_DRAW);

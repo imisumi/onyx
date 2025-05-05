@@ -1,79 +1,3 @@
-// #version 460 core
-
-// layout(local_size_x = 32) in;
-
-// struct BVHNode
-// {
-//     float minX, minY, minZ;    // 12 bytes - bounding box min point
-//     float maxX, maxY, maxZ;    // 12 bytes - bounding box max point
-//     int leftChildOrPrimOffset;  // 4 bytes - child node index or triangleId offset if negative
-//     int rightChildOrPrimCount;  // 4 bytes - right child index or primitive count when leftChildOrPrimOffset < 0
-// };
-
-// layout(std430, binding = 24) buffer bvhNodes {
-//     BVHNode nodes[];
-// };
-
-// struct MeshInfo
-// {
-//     uint positionOffset; // Offset into the positions array
-//     uint normalOffset;   // Offset into the normals array
-//     uint indexOffset;    // Offset into the indices array
-//     uint numVertices;    // Number of vertices in this mesh
-//     uint numIndices;     // Number of indices in this mesh
-//     uint numFaces;       // Number of triangles (numIndices / 3)
-//     uint bvhNodeOffset;  // Offset into the BVH nodes array for this mesh
-//     uint aabbOffset;     // Offset into the AABB array for this mesh
-// };
-
-// layout(std430, binding = 30) buffer meshInfo {
-//     MeshInfo meshes[];
-// };
-
-// // Uniforms
-// uniform int currentLevel;  // Which level of the tree we're currently processing
-// uniform uint meshIndex;    // Which mesh we're processing
-
-// void main()
-// {
-//     // Get the current mesh info
-//     MeshInfo mesh = meshes[meshIndex];
-//     uint numFaces = mesh.numFaces;
-//     uint bvhOffset = mesh.bvhNodeOffset;
-    
-//     // Process only nodes at the current level
-//     uint levelStart = (1u << currentLevel) - 1;
-//     uint levelEnd = min((1u << (currentLevel + 1)) - 2, numFaces - 2);
-    
-//     // Calculate which node this thread should process
-//     uint localNodeIdx = levelStart + gl_GlobalInvocationID.x;
-    
-//     // Only process if this thread maps to a valid node at this level
-//     if (localNodeIdx > levelEnd) return;
-    
-//     // Calculate the global node index including mesh offset
-//     uint nodeIdx = bvhOffset + localNodeIdx;
-    
-//     // Get the indices of this node's children (these already include the mesh offset)
-//     int leftChildIdx = nodes[nodeIdx].leftChildOrPrimOffset;
-//     int rightChildIdx = nodes[nodeIdx].rightChildOrPrimCount;
-    
-//     // Make sure both children are valid
-//     if (leftChildIdx >= 0 && rightChildIdx >= 0)
-//     {
-//         // Update this node's AABB to encompass both children
-//         BVHNode leftChild = nodes[leftChildIdx];
-//         BVHNode rightChild = nodes[rightChildIdx];
-        
-//         nodes[nodeIdx].minX = min(leftChild.minX, rightChild.minX);
-//         nodes[nodeIdx].minY = min(leftChild.minY, rightChild.minY);
-//         nodes[nodeIdx].minZ = min(leftChild.minZ, rightChild.minZ);
-//         nodes[nodeIdx].maxX = max(leftChild.maxX, rightChild.maxX);
-//         nodes[nodeIdx].maxY = max(leftChild.maxY, rightChild.maxY);
-//         nodes[nodeIdx].maxZ = max(leftChild.maxZ, rightChild.maxZ);
-//     }
-// }
-
 #version 460 core
 
 layout(local_size_x = 32) in;
@@ -92,6 +16,7 @@ layout(std430, binding = 24) buffer bvhNodes {
 
 struct MeshInfo
 {
+	mat4 invModelMatrix;
     uint positionOffset; // Offset into the positions array
     uint normalOffset;   // Offset into the normals array
     uint indexOffset;    // Offset into the indices array

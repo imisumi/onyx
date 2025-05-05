@@ -2,21 +2,24 @@
 
 #include "renderer/Renderer.h"
 
+#include <iostream>
+#include <vector>
+#include <ranges>
+
 Scene::Scene()
 {
-	auto shader = Shader::Create("CubeNormalShader", "Shaders/normal.vert", "Shaders/normal.frag");
-	m_ShaderLibrary->Add(shader);
-	m_MaterialLibrary->AddMaterial(Material::Create(shader));
-
-	auto mesh = Mesh::LoadFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/cube.obj");
-
-	// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/cube.obj");
-	// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/1cube.obj");
-	auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/1sphere.obj");
-	// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/dragon.fbx");
-
-	if (1)
 	{
+		auto shader = Shader::Create("CubeNormalShader", "Shaders/normal.vert", "Shaders/normal.frag");
+		m_ShaderLibrary->Add(shader);
+		m_MaterialLibrary->AddMaterial(Material::Create(shader));
+
+		auto mesh = Mesh::LoadFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/cube.obj");
+
+		// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/cube.obj");
+		// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/1cube.obj");
+		auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/1sphere.obj");
+		// auto object = Object3D::CreateMeshFromFile("C:/Users/ichir/Desktop/rndr-rework-lbvh/working-sample/dragon.fbx");
+
 		object->SetMaterial(m_MaterialLibrary->GetMaterial("CubeNormalShader"));
 		object->SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
 		const float scale = 1.0f;
@@ -91,9 +94,12 @@ void Scene::Update(float deltaTime)
 	// Update logic for the scene
 }
 
-void Scene::OnImGuiRender()
+void Scene::RenderUI()
 {
 	ImGui::Begin(m_Name.c_str());
+
+	ImGui::Checkbox("Visualize BLAS", &m_VisualizeBLAS);
+
 	// ImGui::Text("Hello, world!");
 	// render all refrenc count for materials and shaders
 	for (const auto &[name, material] : *m_MaterialLibrary)
@@ -139,32 +145,188 @@ void Scene::OnImGuiRender()
 		m_RootObjects.push_back(object);
 	}
 
-	ImGui::Text("Objects in scene: %d", m_RootObjects.size());
-	for (const auto &object : m_RootObjects)
-	{
-		ImGui::PushID(object->GetID()); // Unique ID for each object
-		// ImGui::Text("Object name: %s", object->GetName().c_str());
-		glm::vec3 position = object->GetPosition();
-		ImGui::DragFloat3("Object Position", glm::value_ptr(position), 0.1f); // Modify the local copy
-		object->SetPosition(position);										  // Update the object with the modified position
-
-		glm::vec3 rotation = object->GetRotation();
-		ImGui::DragFloat3("Object Rotation", glm::value_ptr(rotation), 0.1f); // Modify the local copy
-		object->SetRotation(rotation);										  // Update the object with the modified position
-
-		glm::vec3 scale = object->GetScale();
-		ImGui::DragFloat3("Object Scale", glm::value_ptr(scale), 0.1f); // Modify the local copy
-		object->SetScale(scale);										// Update the object with the modified position
-
-		ImGui::PopID(); // Pop the ID for the object
-	}
 	ImGui::End();
+	{
+		// Apply window styling for this specific window
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+
+		// Start the window
+		ImGui::Begin("Scene Hierarchy", nullptr, ImGuiWindowFlags_NoCollapse);
+
+		// Optional: Add a separator
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		// Render objects in hierarchy
+		for (const auto &object : m_RootObjects)
+		{
+			// Improved tree node flags
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
+									   ImGuiTreeNodeFlags_SpanAvailWidth |
+									   ImGuiTreeNodeFlags_FramePadding;
+
+			if (object == m_SelectedObject)
+				flags |= ImGuiTreeNodeFlags_Selected;
+
+			// Use a custom ID for the tree node (fixed cast)
+			const void *id = reinterpret_cast<const void *>(static_cast<uintptr_t>(object->GetID()));
+
+			// Important: Push color AFTER setting flags but BEFORE TreeNodeEx
+			bool isSelected = (object == m_SelectedObject);
+			if (isSelected)
+			{
+				// Subtle blue-grey color instead of bright blue
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.60f, 0.65f, 0.70f, 1.0f));
+			}
+
+			// Display the node
+			std::string displayName = object->GetName();
+			bool opened = ImGui::TreeNodeEx(id, flags, "%s", displayName.c_str());
+
+			// Handle selection
+			if (ImGui::IsItemClicked())
+			{
+				m_SelectedObject = object;
+			}
+
+			// Enhanced context menu
+			if (ImGui::BeginPopupContextItem())
+			{
+				if (ImGui::MenuItem("Delete", "Del"))
+				{
+					LOG_WARN("Object deletion not yet implemented.");
+				}
+
+				ImGui::EndPopup();
+			}
+
+			// Important: Pop color AFTER TreeNodeEx
+			if (isSelected)
+			{
+				ImGui::PopStyleColor(); // Matching pop for each push
+			}
+
+			if (opened)
+			{
+				// Render child entities here if needed
+				// DrawChildEntityNode(entity);
+				ImGui::TreePop();
+			}
+		}
+
+		ImGui::End();
+		ImGui::PopStyleVar(); // Matching pop for the window padding style
+	}
+	{
+		ImGui::Begin("Properties");
+
+		if (!m_SelectedObject)
+		{
+			ImGui::Text("No object selected");
+			ImGui::End();
+			return;
+		}
+
+		// Header styling
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
+
+		ImGui::Text("Transform");
+		ImGui::Separator();
+
+		const float labelWidth = 100.0f;
+		const float axisButtonWidth = 20.0f;
+
+		// Lambda function to handle a transform property (position, rotation, scale)
+		auto HandleTransformProperty = [&](const char *label, glm::vec3 &values, float resetValue,
+										   std::function<void(const glm::vec3 &)> updateFunc,
+										   float speed = 0.1f, float minValue = 0.0f)
+		{
+			ImGui::Text("%s", label);
+			ImGui::SameLine(labelWidth);
+
+			bool valueChanged = false;
+			const char *axisLabels[3] = {"X", "Y", "Z"};
+			ImVec4 axisColors[3] = {
+				ImVec4(0.7f, 0.2f, 0.2f, 1.0f), // Red for X
+				ImVec4(0.2f, 0.7f, 0.2f, 1.0f), // Green for Y
+				ImVec4(0.2f, 0.2f, 0.7f, 1.0f)	// Blue for Z
+			};
+
+			for (int i = 0; i < 3; i++)
+			{
+				// Only add SameLine after first component
+				if (i > 0)
+					ImGui::SameLine(0, 2);
+
+				// Axis button with color
+				ImGui::PushStyleColor(ImGuiCol_Button, axisColors[i]);
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+									  ImVec4(axisColors[i].x + 0.2f, axisColors[i].y + 0.2f, axisColors[i].z + 0.2f, 1.0f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+									  ImVec4(axisColors[i].x - 0.2f, axisColors[i].y - 0.2f, axisColors[i].z - 0.2f, 1.0f));
+
+				// Create unique ID for each button
+				char buttonId[16];
+				snprintf(buttonId, sizeof(buttonId), "%s##%s%d", axisLabels[i], label, i);
+
+				if (ImGui::Button(buttonId, ImVec2(axisButtonWidth, 0)))
+				{
+					values[i] = resetValue;
+					valueChanged = true;
+				}
+				ImGui::PopStyleColor(3);
+
+				// Value field
+				ImGui::SameLine(0, 2);
+
+				// Only set item width on first element
+				if (i == 0)
+				{
+					ImGui::PushItemWidth((ImGui::GetContentRegionAvail().x - axisButtonWidth * 2 - 4) / 3);
+				}
+
+				// Create unique ID for each drag field
+				char dragId[16];
+				snprintf(dragId, sizeof(dragId), "##%s%d", label, i);
+
+				if (ImGui::DragFloat(dragId, &values[i], speed, minValue))
+					valueChanged = true;
+			}
+
+			if (valueChanged)
+				updateFunc(values);
+		};
+
+		// Handle Position
+		{
+			glm::vec3 position = m_SelectedObject->GetPosition();
+			HandleTransformProperty("Translation", position, 0.0f,
+									[&](const glm::vec3 &pos)
+									{ m_SelectedObject->SetPosition(pos); });
+		}
+
+		// Handle Rotation
+		{
+			glm::vec3 rotation = m_SelectedObject->GetRotation();
+			HandleTransformProperty("Rotation", rotation, 0.0f,
+									[&](const glm::vec3 &rot)
+									{ m_SelectedObject->SetRotation(rot); });
+		}
+
+		// Handle Scale
+		{
+			glm::vec3 scale = m_SelectedObject->GetScale();
+			HandleTransformProperty("Scale", scale, 1.0f, [&](const glm::vec3 &scl)
+									{ m_SelectedObject->SetScale(scl); }, 0.1f, 0.01f);
+		}
+
+		ImGui::PopStyleVar(); // FramePadding
+		ImGui::End();
+	}
 }
 
-void Scene::Render()
+void Scene::RenderViewport()
 {
-	// Render logic for the scene
-
 	{
 		std::shared_ptr<Shader> cubeShader = m_ShaderLibrary->Get("CubeNormalShader");
 		cubeShader->Bind();
@@ -206,23 +368,19 @@ void Scene::Render()
 
 		// Renderer::Submit(Mesh::CreateDefaultSphere()->GetVertexArray());
 		Renderer::Submit(Mesh::CreateDefaultTriangle()->GetVertexArray());
+
+		cubeShader->Unbind();
 	}
+}
 
-	// return ;
+void Scene::PrepMeshBuffers()
+{
+	m_MeshInfos.clear();
+	m_PositionsBuffer.clear(GL_STREAM_DRAW);
+	m_NormalsBuffer.clear(GL_STREAM_DRAW);
+	m_IndicesBuffer.clear(GL_STREAM_DRAW);
+	m_OffsetBuffer.clear(GL_STREAM_DRAW);
 
-	struct MeshInfo
-	{
-		uint32_t positionOffset; // Offset into the positions array
-		uint32_t normalOffset;	 // Offset into the normals array
-		uint32_t indexOffset;	 // Offset into the indices array
-		uint32_t numVertices;	 // Number of vertices in this mesh
-		uint32_t numIndices;	 // Number of indices in this mesh
-		uint32_t numFaces;		 // Number of triangles (numIndices / 3)
-		uint32_t bvhNodeOffset;	 // Offset into the BVH nodes array for this mesh
-		uint32_t aabbOffset;	 // Offset into the AABB array for this mesh
-	};
-
-	std::vector<MeshInfo> meshInfos;
 	uint32_t positionOffsetCounter = 0;
 	uint32_t normalOffsetCounter = 0;
 	uint32_t indexOffsetCounter = 0;
@@ -230,91 +388,79 @@ void Scene::Render()
 	uint32_t aabbOffsetCounter = 0;	   // Assuming you have a counter for AABBs
 
 	uint32_t totalFaces = 0;
+
+	for (const auto &object : m_RootObjects)
 	{
-		// std::shared_ptr<Shader> cubeShader = m_ShaderLibrary->Get("CubeNormalShader");
-		// cubeShader->Bind();
-		m_PositionsBuffer.clear(GL_STREAM_DRAW);
-		m_NormalsBuffer.clear(GL_STREAM_DRAW);
-		m_IndicesBuffer.clear(GL_STREAM_DRAW);
+		const auto &mesh = object->GetMesh();
+		const auto &positions = mesh->GetPositions();
+		const auto &normals = mesh->GetNormals();
+		const auto &indices = mesh->GetIndices();
 
-		m_OffsetBuffer.clear(GL_STREAM_DRAW);
-		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 meshMatrix = object->GetWorldTransform();
+		auto inverseMeshMatrix = glm::inverse(meshMatrix);
 
-		uint32_t meshIndex = 0;
-		for (const auto &object : m_RootObjects)
+		m_PositionsBuffer.pushData(positions.data(), static_cast<uint32_t>(sizeof(float) * positions.size()), GL_STREAM_DRAW);
+		m_NormalsBuffer.pushData(normals.data(), static_cast<uint32_t>(sizeof(float) * normals.size()), GL_STATIC_DRAW);
+		m_IndicesBuffer.pushData(indices.data(), static_cast<uint32_t>(sizeof(uint32_t) * indices.size()), GL_STATIC_DRAW);
+
+		MeshInfo meshInfo;
+		meshInfo.invModelMatrix = inverseMeshMatrix; // Store the inverse model matrix for this mesh
+		meshInfo.positionOffset = positionOffsetCounter;
+		meshInfo.normalOffset = normalOffsetCounter;
+		meshInfo.indexOffset = indexOffsetCounter;
+		meshInfo.numVertices = static_cast<uint32_t>(positions.size() / 3);
+		meshInfo.numIndices = static_cast<uint32_t>(indices.size());
+		meshInfo.numFaces = meshInfo.numIndices / 3;
+		meshInfo.bvhNodeOffset = bvhNodeOffsetCounter; // Assuming you have a counter for BVH nodes
+		meshInfo.aabbOffset = aabbOffsetCounter;	   // Assuming you have a counter for AABBs
+
+		positionOffsetCounter += meshInfo.numVertices * 3; // Assuming 3 floats per vertex
+		normalOffsetCounter += meshInfo.numVertices * 3;   // Assuming 3 floats per normal
+		indexOffsetCounter += meshInfo.numIndices;		   // Assuming 1 uint32_t per index
+		bvhNodeOffsetCounter += meshInfo.numFaces * 2 - 1; // Assuming 2 nodes per face (for a BVH tree)
+		aabbOffsetCounter += meshInfo.numFaces * 6;		   // Assuming 6 floats per AABB (min and max for x, y, z)
+		totalFaces += meshInfo.numFaces;
+		m_MeshInfos.push_back(meshInfo);
+
+		m_OffsetBuffer.pushData(&meshInfo, sizeof(MeshInfo), GL_STREAM_DRAW);
+	}
+}
+
+void Scene::Render()
+{
+	{
+		PrepMeshBuffers();
+	}
+
+	{ //? BLAS
+		// for (const auto &[index, mesh] : std::views::enumerate(m_MeshInfos))
+		for (size_t meshIndex = 0; meshIndex < m_MeshInfos.size(); meshIndex++)
 		{
-			model = glm::mat4(1.0f);
-			auto mesh = object->GetMesh();
-			auto positions = mesh->GetPositions();
-			auto normals = mesh->GetNormals();
-			auto indices = mesh->GetIndices();
+			const auto &mesh = m_MeshInfos[meshIndex];
+			const uint32_t index = static_cast<uint32_t>(meshIndex);
 
-			m_PositionsBuffer.pushData(positions.data(), static_cast<uint32_t>(sizeof(float) * positions.size()), GL_STREAM_DRAW);
-			m_NormalsBuffer.pushData(normals.data(), static_cast<uint32_t>(sizeof(float) * normals.size()), GL_STATIC_DRAW);
-			m_IndicesBuffer.pushData(indices.data(), static_cast<uint32_t>(sizeof(uint32_t) * indices.size()), GL_STATIC_DRAW);
+			const uint32_t aabbCount = mesh.numFaces;
+			const uint32_t totalNodes = aabbCount * 2 - 1;
 
-			MeshInfo meshInfo;
-			meshInfo.positionOffset = positionOffsetCounter;
-			meshInfo.normalOffset = normalOffsetCounter;
-			meshInfo.indexOffset = indexOffsetCounter;
-			meshInfo.numVertices = static_cast<uint32_t>(positions.size() / 3);
-			meshInfo.numIndices = static_cast<uint32_t>(indices.size());
-			meshInfo.numFaces = meshInfo.numIndices / 3;
-			meshInfo.bvhNodeOffset = bvhNodeOffsetCounter; // Assuming you have a counter for BVH nodes
-			meshInfo.aabbOffset = aabbOffsetCounter;	   // Assuming you have a counter for AABBs
-
-			positionOffsetCounter += meshInfo.numVertices * 3; // Assuming 3 floats per vertex
-			normalOffsetCounter += meshInfo.numVertices * 3;   // Assuming 3 floats per normal
-			indexOffsetCounter += meshInfo.numIndices;		   // Assuming 1 uint32_t per index
-			bvhNodeOffsetCounter += meshInfo.numFaces * 2 - 1; // Assuming 2 nodes per face (for a BVH tree)
-			aabbOffsetCounter += meshInfo.numFaces * 6;		   // Assuming 6 floats per AABB (min and max for x, y, z)
-			totalFaces += meshInfo.numFaces;
-			meshInfos.push_back(meshInfo);
-
-			m_OffsetBuffer.pushData(&meshInfo, sizeof(MeshInfo), GL_STREAM_DRAW);
-
-			// glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			auto shader = object->GetMaterial()->GetShader();
-			glm::vec3 position = object->GetPosition();
-			glm::vec3 rotation = object->GetRotation();
-			glm::vec3 scale = object->GetScale();
-			model = glm::translate(model, position);
-			// model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-			// model = glm::rotate(model, glm::radians(0.0f), glm::vec3(1.0f, 1.0f, 1.0f));
-			model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-			model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-			model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-			model = glm::scale(model, scale);
-			// model = glm::scale(model, glm::vec3(1.0f));
-
-			shader->Bind();
-			shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
-			shader->SetMat4("model", model);
-			// shader->SetMat4("model", glm::mat4(1.0f));
-			// object->GetMesh()->GetVertexArray()->Bind();
-			Renderer::Submit(object->GetMesh()->GetVertexArray());
-
-			// continue;
-			// LOG_INFO("Mesh index: {0}", meshIndex);
-			//? LBVH pipeline
+			//? Cretaes all the leaf nodes
 			{
-				const uint32_t aabbCount = meshInfo.numFaces;
-				// const uint32_t
+				glm::mat4 meshMatrix = glm::inverse(mesh.invModelMatrix);
 				m_ComputeShader->Use();
-				m_ComputeShader->SetMat4("model", model);
-				m_ComputeShader->SetUnsignedInt("meshIndex", meshIndex);
+				m_ComputeShader->SetMat4("model", meshMatrix);
+				m_ComputeShader->SetUnsignedInt("meshIndex", index);
 
-				// m_ComputeShader->Dispatch(5000, 1, 1);
-				const uint32_t totalNodes = aabbCount * 2 - 1;
 				m_ComputeShader->Dispatch((totalNodes + 31) / 32, 1, 1);
+			}
 
+			//? Generates and links all internal nodes
+			{
 				int treeHeight = static_cast<int>(std::ceil(std::log2(aabbCount)));
 
 				for (int level = treeHeight - 1; level >= 0; level--)
 				{
 					m_ComputeCalcMinMax->Use();
 					m_ComputeCalcMinMax->SetInt("currentLevel", level);
-					m_ComputeCalcMinMax->SetUnsignedInt("meshIndex", meshIndex);
+					m_ComputeCalcMinMax->SetUnsignedInt("meshIndex", index);
 
 					// Calculate the number of nodes at this level
 					uint32_t levelStart = (1u << level) - 1;
@@ -328,15 +474,32 @@ void Scene::Render()
 					// Ensure all writes are visible before processing the next level
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
-
-				// ? Visualize the AABBs
-				m_Shader->Bind();
-				m_Shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
-				m_Shader->SetUnsignedInt("meshIndex", meshIndex);
-
-				Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
 			}
-			meshIndex++;
+		}
+	}
+
+	{ //? Render objects in viewport
+		for (const auto &object : m_RootObjects)
+		{
+			auto shader = object->GetMaterial()->GetShader();
+			shader->Bind();
+			shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
+			shader->SetMat4("model", object->GetWorldTransform());
+			Renderer::Submit(object->GetMesh()->GetVertexArray());
+		}
+	}
+
+	if (m_VisualizeBLAS)
+	{ //? Visualize AABBs in viewport
+		m_Shader->Bind();
+		m_Shader->SetMat4("viewProj", m_EditorCamera->GetViewProjection());
+		for (size_t i = 0; i < m_MeshInfos.size(); ++i)
+		{
+			const auto &meshInfo = m_MeshInfos[i];
+
+			m_Shader->SetUnsignedInt("meshIndex", static_cast<uint32_t>(i));
+
+			Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
 		}
 	}
 }

@@ -38,6 +38,7 @@ layout(std430, binding = 24) buffer reccAABB {
 
 struct MeshInfo
 {
+	mat4 invModelMatrix;
 	uint positionOffset; // Offset into the positions array
 	uint normalOffset;	 // Offset into the normals array
 	uint indexOffset;	 // Offset into the indices array

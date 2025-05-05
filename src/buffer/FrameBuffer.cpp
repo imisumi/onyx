@@ -75,8 +75,6 @@ namespace Utils
 		default:
 			return false;
 		}
-
-		return false;
 	}
 
 	static GLenum FrameBufferTextureFormatToGL(FrameBufferTextureFormat format)
@@ -102,8 +100,8 @@ std::shared_ptr<FrameBuffer> FrameBuffer::Create(const FrameBufferSpecification 
 	return std::make_shared<FrameBuffer>(spec);
 }
 
-FrameBuffer::FrameBuffer(const FrameBufferSpecification &spec)
-	: m_Specification(spec)
+FrameBuffer::FrameBuffer(const FrameBufferSpecification &_spec)
+	: m_Specification(_spec)
 {
 	for (auto spec : m_Specification.Attachments.Attachments)
 	{
@@ -119,7 +117,7 @@ FrameBuffer::FrameBuffer(const FrameBufferSpecification &spec)
 FrameBuffer::~FrameBuffer()
 {
 	glDeleteFramebuffers(1, &m_RendererID);
-	glDeleteTextures(m_ColorAttachments.size(), m_ColorAttachments.data());
+	glDeleteTextures(static_cast<int>(m_ColorAttachments.size()), m_ColorAttachments.data());
 	glDeleteTextures(1, &m_DepthAttachment);
 }
 
@@ -135,7 +133,7 @@ void FrameBuffer::Invalidate()
 	{
 		LOG_INFO("Recreating framebuffer {} width {} height {}", m_RendererID, m_Specification.Width, m_Specification.Height);
 		glDeleteFramebuffers(1, &m_RendererID);
-		glDeleteTextures(m_ColorAttachments.size(), m_ColorAttachments.data());
+		glDeleteTextures(static_cast<int>(m_ColorAttachments.size()), m_ColorAttachments.data());
 		glDeleteTextures(1, &m_DepthAttachment);
 
 		m_ColorAttachments.clear();
@@ -151,9 +149,9 @@ void FrameBuffer::Invalidate()
 	if (m_ColorAttachmentSpecifications.size())
 	{
 		m_ColorAttachments.resize(m_ColorAttachmentSpecifications.size());
-		Utils::CreateTextures(multisample, m_ColorAttachments.data(), m_ColorAttachments.size());
+		Utils::CreateTextures(multisample, m_ColorAttachments.data(), static_cast<uint32_t>(m_ColorAttachments.size()));
 
-		for (size_t i = 0; i < m_ColorAttachments.size(); i++)
+		for (uint32_t i = 0; i < m_ColorAttachments.size(); i++)
 		{
 			Utils::BindTexture(multisample, m_ColorAttachments[i]);
 			switch (m_ColorAttachmentSpecifications[i].TextureFormat)
@@ -187,7 +185,7 @@ void FrameBuffer::Invalidate()
 	{
 		MY_ASSERT(m_ColorAttachments.size() <= 4, "Renderer supports only 4 color attachments!");
 		GLenum buffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
-		glDrawBuffers(m_ColorAttachments.size(), buffers);
+		glDrawBuffers(static_cast<uint32_t>(m_ColorAttachments.size()), buffers);
 	}
 	else if (m_ColorAttachments.empty())
 	{

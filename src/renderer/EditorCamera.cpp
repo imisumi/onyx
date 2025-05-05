@@ -20,7 +20,7 @@ EditorCamera::EditorCamera(float fov, float aspectRatio, float nearClip, float f
 
 void EditorCamera::UpdateProjection()
 {
-    m_AspectRatio = m_ViewportWidth / m_ViewportHeight;
+    m_AspectRatio = static_cast<float>(m_ViewportWidth) / static_cast<float>(m_ViewportHeight);
     m_Projection = glm::perspectiveLH(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
 }
 
@@ -46,7 +46,7 @@ void EditorCamera::SetPosition(const glm::vec3& position)
     UpdateView();
 }
 
-void EditorCamera::SetViewportSize(float width, float height)
+void EditorCamera::SetViewportSize(uint32_t width, uint32_t height)
 {
     m_ViewportWidth = width;
     m_ViewportHeight = height;
@@ -134,8 +134,8 @@ void EditorCamera::MousePan(const glm::vec2& delta)
 {
     auto [xSpeed, ySpeed] = PanSpeed();
     // Since we flipped the X and Y axes, adjust panning directions accordingly
-    m_FocalPoint += GetRightDirection() * delta.x * xSpeed * m_Distance;
-    m_FocalPoint += -GetUpDirection() * delta.y * ySpeed * m_Distance;
+    m_FocalPoint += GetRightDirection() * -delta.x * xSpeed * m_Distance;
+    m_FocalPoint += -GetUpDirection() * -delta.y * ySpeed * m_Distance;
 }
 
 void EditorCamera::MouseRotate(const glm::vec2& delta)

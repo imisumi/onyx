@@ -33,7 +33,7 @@ public:
     // Setters
     void SetDistance(float distance) { m_Distance = distance; }
     void SetPosition(const glm::vec3& position);
-    void SetViewportSize(float width, float height);
+    void SetViewportSize(uint32_t width, uint32_t height);
 
 private:
     // Constants
@@ -70,8 +70,8 @@ private:
     float m_Distance = 10.0f;
     float m_Pitch = 0.0f;
     float m_Yaw = 0.0f;
-    float m_ViewportWidth = 1280.0f;
-    float m_ViewportHeight = 720.0f;
+    uint32_t m_ViewportWidth = 1280;
+    uint32_t m_ViewportHeight = 720;
 
     // Matrices and vectors
     glm::mat4 m_ViewMatrix{1.0f};

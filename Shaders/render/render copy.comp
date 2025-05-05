@@ -1,0 +1,389 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
+layout(rgba32f, binding = 0) uniform image2D imageOutput;
+
+#define INF 1.0 / 0.0 //? Infinity
+
+//? View-projection matrix uniform
+uniform mat4 viewProjectionMatrix;
+uniform mat4 viewProjectionInverseMatrix; //? Inverse for ray generation
+
+uniform uint numIndices; //? Number of indices in the mesh
+uniform vec3 cameraPosition;
+
+//? Hard-code mesh index to 0
+const uint meshIndex = 0;
+
+struct BVHNode
+{
+    float minX, minY, minZ;    //? 12 bytes - bounding box min point
+    float maxX, maxY, maxZ;    //? 12 bytes - bounding box max point
+    int leftChildOrPrimOffset;  //? 4 bytes - child node index or triangleId offset if negative
+    int rightChildOrPrimCount;  //? 4 bytes - right child index or primitive count when leftChildOrPrimOffset < 0
+};
+
+layout(std430, binding = 24) buffer bvhNodes {
+    BVHNode nodes[];
+};
+
+struct MeshInfo
+{
+	mat4 invModelMatrix;
+    uint positionOffset; //? Offset into the positions array
+    uint normalOffset;   //? Offset into the normals array
+    uint indexOffset;    //? Offset into the indices array
+    uint numVertices;    //? Number of vertices in this mesh
+    uint numIndices;     //? Number of indices in this mesh
+    uint numFaces;       //? Number of triangles (numIndices / 3)
+    uint bvhNodeOffset;  //? Offset into the BVH nodes array for this mesh
+    uint aabbOffset;     //? Offset into the AABB array for this mesh
+};
+
+layout(std430, binding = 30) buffer meshInfo {
+    MeshInfo meshes[];
+};
+
+layout(std430, binding = 20) buffer meshPositions {
+    float positions[]; //? Flat array of vertex positions
+};
+
+layout(std430, binding = 21) buffer meshNormals {
+    float normals[]; //? Flat array of vertex normals
+};
+
+layout(std430, binding = 22) buffer meshIndices {
+    uint indices[]; //? Flat array of triangle indices
+};
+
+//? Ray structure
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+//? Hit record structure
+struct HitRecord {
+    float t;
+    vec3 position;
+    vec3 normal;
+    bool hit;
+    uint triangleIndex; //? Index of the hit triangle
+    vec3 barycentricCoords; //? Barycentric coordinates for interpolation
+    int hitType; //? 0=miss, 1=triangle, 2=bounding box, 3=leaf node
+};
+
+//? Fix the swap function that's used in AABB_intersect
+void swap(inout float a, inout float b) {
+    float temp = a;
+    a = b;
+    b = temp;
+}
+
+
+bool AABB_intersect(Ray ray, vec3 minBounds, vec3 maxBounds, out float tNear, out float tFar) {
+    // Add a small epsilon to avoid precision issues
+    const float eps = 1e-6;
+    
+    // Handle division by zero with a more stable approach
+    vec3 invDir = vec3(
+        abs(ray.direction.x) < eps ? 1e10 * sign(ray.direction.x + eps) : 1.0 / ray.direction.x,
+        abs(ray.direction.y) < eps ? 1e10 * sign(ray.direction.y + eps) : 1.0 / ray.direction.y,
+        abs(ray.direction.z) < eps ? 1e10 * sign(ray.direction.z + eps) : 1.0 / ray.direction.z
+    );
+    
+    vec3 t1 = (minBounds - ray.origin) * invDir;
+    vec3 t2 = (maxBounds - ray.origin) * invDir;
+    
+    vec3 tMin = min(t1, t2);
+    vec3 tMax = max(t1, t2);
+    
+    tNear = max(max(tMin.x, tMin.y), tMin.z);
+    tFar = min(min(tMax.x, tMax.y), tMax.z);
+    
+    // Add a small epsilon to the comparison to handle edge cases
+    return tNear <= tFar + eps && tFar > 0.0;
+}
+
+bool intersectTriangle(Ray ray, vec3 v0, vec3 v1, vec3 v2, out HitRecord record, float currentMinT, vec3 n0, vec3 n1, vec3 n2) {
+    MeshInfo m = meshes[0];
+    
+    // Store original ray for later distance calculation
+    Ray worldRay = ray;
+    
+    // Transform ray to object space
+    ray.origin = vec3(m.invModelMatrix * vec4(ray.origin, 1.0));
+    ray.direction = normalize(vec3(m.invModelMatrix * vec4(ray.direction, 0.0)));
+
+    const float EPSILON = 0.0000001;
+    
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+    vec3 h = cross(ray.direction, edge2);
+    float a = dot(edge1, h);
+    
+    // Check if ray is parallel to triangle
+    if (a > -EPSILON && a < EPSILON) {
+        return false;
+    }
+    
+    float f = 1.0 / a;
+    vec3 s = ray.origin - v0;
+    float u = f * dot(s, h);
+    
+    // Check if hit point is outside the triangle
+    if (u < 0.0 || u > 1.0) {
+        return false;
+    }
+    
+    vec3 q = cross(s, edge1);
+    float v = f * dot(ray.direction, q);
+    
+    // Check if hit point is outside the triangle
+    if (v < 0.0 || u + v > 1.0) {
+        return false;
+    }
+    
+    // Compute t (distance along ray)
+    float t = f * dot(edge2, q);
+    
+    // Check if intersection is behind ray origin or farther than current closest hit
+    if (t <= EPSILON || t >= currentMinT) {
+        return false;
+    }
+    
+    // Store the barycentric coordinates
+    vec3 bary = vec3(1.0 - u - v, u, v);
+    
+    // Compute geometric normal (for backface test)
+    vec3 geometricNormal = normalize(cross(edge1, edge2));
+    
+    // Interpolate the vertex normals using barycentric coordinates
+    vec3 interpolatedNormal = normalize(
+        bary.x * n0 +
+        bary.y * n1 +
+        bary.z * n2
+    );
+    
+    // Make sure normal faces ray direction
+    // Use geometric normal for backface test, but keep interpolated normal for shading
+    if (dot(geometricNormal, ray.direction) > 0.0) {
+        interpolatedNormal = -interpolatedNormal; // Flip the interpolated normal
+    }
+    
+    // Calculate position in object space
+    vec3 objectPosition = ray.origin + t * ray.direction;
+    
+    // Transform position and normal back to world space
+    mat4 modelMatrix = inverse(m.invModelMatrix);
+    vec3 worldPosition = vec3(modelMatrix * vec4(objectPosition, 1.0));
+    
+    // Transform normal using the normal matrix (inverse transpose of the 3x3 portion)
+    mat3 normalMatrix = transpose(mat3(m.invModelMatrix));
+    vec3 worldNormal = normalize(normalMatrix * interpolatedNormal);
+    
+    // Calculate true world-space distance for hit sorting
+    float worldDistance = distance(worldRay.origin, worldPosition);
+    
+    // Fill hit record with world-space values
+    record.t = worldDistance;
+    record.position = worldPosition;
+    record.normal = worldNormal;
+    record.hit = true;
+    record.barycentricCoords = bary;
+    record.hitType = 1; // Triangle hit
+    
+    return true;
+}
+
+HitRecord BLAS_intersection(Ray ray)
+{
+    BVHNode nodeStack[32];
+    int stackIndex = 0;
+    
+    //? Get mesh information for the current mesh
+    MeshInfo currentMesh = meshes[meshIndex];
+    
+    //? Start with the root node, applying the mesh's BVH node offset
+    uint rootNodeIndex = currentMesh.bvhNodeOffset;
+    nodeStack[stackIndex++] = nodes[rootNodeIndex];
+
+    HitRecord hitInfo;
+    hitInfo.hit = false;
+    hitInfo.t = INF;
+    hitInfo.hitType = 0; //? Miss
+    
+    //? Visualization for debugging
+    float closestBoundingBoxT = INF;
+    bool hitAnyBoundingBox = false;
+    float closestLeafNodeT = INF;
+    bool hitAnyLeafNode = false;
+    
+    
+    while (stackIndex > 0)
+    {
+        BVHNode node = nodeStack[--stackIndex];
+        
+        vec3 minBounds = vec3(node.minX, node.minY, node.minZ);
+        vec3 maxBounds = vec3(node.maxX, node.maxY, node.maxZ);
+        
+        float tNear, tFar;
+        if (AABB_intersect(ray, minBounds, maxBounds, tNear, tFar))
+        {
+            if (node.leftChildOrPrimOffset <= 0) //? Leaf node
+            {
+                //? Calculate primitive offset and count
+                int primitiveOffset = node.leftChildOrPrimOffset * -1;  //? Convert to positive offset
+                int primitiveCount = 1; //? for now just one but might change in the future then use node.rightChildOrPrimCount
+
+                for (int i = 0; i < primitiveCount; i++)
+                {
+                    
+                    //? Get triangle index from the primitiveOffset
+                    uint triIndex = primitiveOffset + i;
+
+                    //? Get vertex indices for this triangle, applying mesh index offset
+                    uint indexOffset = currentMesh.indexOffset;
+                    uint indexA = indices[indexOffset + triIndex + 0];
+                    uint indexB = indices[indexOffset + triIndex + 1];
+                    uint indexC = indices[indexOffset + triIndex + 2];
+
+                    //? Get the vertex positions, applying mesh position offset
+
+					uint posA = currentMesh.positionOffset + indexA * 3;
+					uint posB = currentMesh.positionOffset + indexB * 3;
+					uint posC = currentMesh.positionOffset + indexC * 3;
+
+					//? Get vertex positions
+					vec3 v0 = vec3(positions[posA], positions[posA + 1], positions[posA + 2]);
+					vec3 v1 = vec3(positions[posB], positions[posB + 1], positions[posB + 2]);
+					vec3 v2 = vec3(positions[posC], positions[posC + 1], positions[posC + 2]);
+
+					vec3 n0 = vec3(normals[posA], normals[posA + 1], normals[posA + 2]);
+					vec3 n1 = vec3(normals[posB], normals[posB + 1], normals[posB + 2]);
+					vec3 n2 = vec3(normals[posC], normals[posC + 1], normals[posC + 2]);
+                    
+                    //? Check intersection with triangle
+                    HitRecord tempRecord;
+                    if (intersectTriangle(ray, v0, v1, v2, tempRecord, hitInfo.t, n0, n1, n2)) {
+                        hitInfo = tempRecord;
+                        hitInfo.triangleIndex = triIndex;
+                        hitInfo.hitType = 1; //? Triangle hit
+                    }
+					else
+					{
+						// hitInfo.normal = vec3(1.0, 1.0, 0.0); //? For debugging
+						// hitInfo.hit = true;
+                        // hitInfo.hitType = 2; //? Triangle hit
+
+					}
+                }
+            }
+            else //? Internal node - push children to the stack
+            {
+                //? Make sure we have valid child indices
+                int leftChild = node.leftChildOrPrimOffset;
+                int rightChild = node.rightChildOrPrimCount;
+                
+                if (leftChild >= 0 && leftChild < nodes.length()) {
+                    nodeStack[stackIndex++] = nodes[leftChild];
+                }
+                if (rightChild >= 0 && rightChild < nodes.length()) {
+                    nodeStack[stackIndex++] = nodes[rightChild];
+                }
+                
+            }
+        }
+    }
+
+    return hitInfo;
+}
+
+//? Function to create a ray from camera through pixel
+Ray createCameraRay(ivec2 pixelCoords, ivec2 dimensions) {
+    //? Convert pixel to NDC coordinates ([-1, 1])
+    vec2 uv = 2.0 * vec2(pixelCoords) / vec2(dimensions) - 1.0;
+    
+    //? Create a point in clip space
+    vec4 clipPos = vec4(uv.x, -uv.y, 1.0, 1.0);
+    
+    //? Transform to world space using inverse view-projection matrix
+    vec4 worldPos = viewProjectionInverseMatrix * clipPos;
+    worldPos /= worldPos.w; //? Perspective divide
+    
+    //? Create ray
+    Ray ray;
+    ray.origin = cameraPosition;
+    ray.direction = normalize(vec3(worldPos) - ray.origin);
+    
+    return ray;
+}
+
+//? Simple sky color function
+vec3 getSkyColor(vec3 direction) {
+    float t = 0.5 * (direction.y + 1.0);
+    return mix(vec3(1.0), vec3(0.5, 0.7, 1.0), t);
+}
+
+//? Main path tracing function
+vec3 trace(Ray ray) {
+    HitRecord record;
+    
+    record = BLAS_intersection(ray);
+    // record = bruteForceTriangleCheck(ray);
+
+    
+    if (record.hit) {
+        //? Color based on hit type
+        if (record.hitType == 3) { //? Leaf node
+            return vec3(0.0, 1.0, 0.0); //? Green for leaf nodes
+        } else if (record.hitType == 2) { //? Bounding box
+            return vec3(0.0, 0.0, 0.0); //? Magenta for bounding boxes
+        } else if (record.hitType == 1) { //? Triangle
+            //? Standard shading with normal
+            vec3 normalColor = record.normal * 0.5 + 0.5;
+			return normalColor;
+            
+            //? Simple directional light from above
+            vec3 lightDir = normalize(vec3(0.5, 1.0, 0.2));
+            float diffuse = max(0.0, dot(record.normal, lightDir));
+            
+            //? Calculate checkerboard pattern for visualization
+            float scale = 5.0;
+            vec3 p = record.position * scale;
+            float pattern = mod(floor(p.x) + floor(p.z), 2.0);
+            vec3 checkerColor = mix(vec3(0.8), vec3(0.3), pattern);
+            
+            //? Mix normal color with checker pattern
+            vec3 finalColor = mix(normalColor, checkerColor, 0.3);
+            
+            //? Apply lighting
+            return finalColor * (0.2 + 0.8 * diffuse);
+        }
+    }
+    
+    //? No hit, return sky color
+    return getSkyColor(ray.direction);
+}
+
+void main()
+{
+    //? Get the current pixel coordinates
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    
+    //? Get the dimensions of the output image
+    ivec2 dimensions = imageSize(imageOutput);
+    
+    //? Only process pixels within the image bounds
+    if (pixelCoords.x < dimensions.x && pixelCoords.y < dimensions.y)
+    {
+        //? Create a camera ray for this pixel
+        Ray ray = createCameraRay(pixelCoords, dimensions);
+        
+        //? Trace the ray and get the color
+        vec3 color = trace(ray);
+        
+        //? Store the color in the output image (with alpha = 1.0)
+        imageStore(imageOutput, pixelCoords, vec4(color, 1.0));
+    }
+}
