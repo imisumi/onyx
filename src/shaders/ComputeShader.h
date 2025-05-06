@@ -15,6 +15,9 @@ public:
 	ComputeShader(const std::string &filePath);
 	~ComputeShader();
 
+	const std::string &GetName() const { return m_Name; }
+	void SetName(const std::string &name) { m_Name = name; }
+
 	// Core functionality
 	bool LoadFromFile(const std::string &filePath);
 	bool LoadFromString(const std::string &shaderSource);
@@ -31,6 +34,7 @@ public:
 	}
 
 private:
+	std::string m_Name;
 	uint32_t m_ProgramID;
 	uint32_t m_ShaderID;
 

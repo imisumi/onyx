@@ -12,7 +12,7 @@ ComputeShader::ComputeShader()
 }
 
 ComputeShader::ComputeShader(const std::string &filePath)
-	: m_ProgramID(0), m_ShaderID(0)
+	: m_ProgramID(0), m_ShaderID(0), m_Name(filePath)
 {
 	LoadFromFile(filePath);
 }
@@ -80,6 +80,8 @@ bool ComputeShader::LoadFromFile(const std::string &filePath)
 {
 	// Read file contents (implementation depends on your file handling approach)
 	std::string fileContents = ""; // Replace with actual file reading code
+
+	m_Name = filePath; // Set the name to the file path
 
 	// Use a file reading method of your choice
 	// For example, using std::ifstream:

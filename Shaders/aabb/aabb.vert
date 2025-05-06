@@ -33,6 +33,7 @@ layout(std430, binding = 30) buffer meshInfo {
 };
 
 uniform mat4 viewProj;
+uniform mat4 model;
 uniform uint meshIndex; // New uniform to specify which mesh we're rendering
 
 out vec3 fragColor;
@@ -63,13 +64,26 @@ void main() {
     float maxX = nodes[nodeIndex].maxX;
     float maxY = nodes[nodeIndex].maxY;
     float maxZ = nodes[nodeIndex].maxZ;
+
+	// vec3 min = vec3(model * vec4(minX, minY, minZ, 1.0)).xyz;
+	// vec3 max = vec3(model * vec4(maxX, maxY, maxZ, 1.0)).xyz;
+	vec3 min = vec3(minX, minY, minZ);
+	vec3 max = vec3(maxX, maxY, maxZ);
+	
+	// Transform the local vertex to world space using the model matrix
+
+	vec3 size = max - min;
+	vec3 position = (localVertex * 0.5 + 0.5) * size + min;
     
     // Scale and translate the local vertex
-    vec3 size = vec3(maxX - minX, maxY - minY, maxZ - minZ);
-    vec3 position = (localVertex * 0.5 + 0.5) * size + vec3(minX, minY, minZ);
+    // vec3 size = vec3(maxX - minX, maxY - minY, maxZ - minZ);
+    // vec3 position = (localVertex * 0.5 + 0.5) * size + vec3(minX, minY, minZ);
     
     // Output the final position
-    gl_Position = viewProj * vec4(position, 1.0);
+    // gl_Position = viewProj * vec4(position, 1.0);
+	gl_Position = viewProj * model * vec4(position, 1.0);
+	// gl_Position = viewProj * vec4(position, 1.0);
+
     
     // Set fragment color from the neon color palette based on instance ID
     fragColor = neonColors[gl_InstanceID % 8];

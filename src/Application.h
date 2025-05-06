@@ -33,10 +33,12 @@ private:
 	void OnRender();
 	void OnUIRender();
 
+
 private:
 	static Application *s_Instance;
 	std::unique_ptr<Window> m_Window;
 	bool m_Running = true;
+	bool m_VSync = true;
 
 	glm::vec4 m_ClearColor = glm::vec4(0.0f, 0.078f, 0.118f, 1.0f);
 

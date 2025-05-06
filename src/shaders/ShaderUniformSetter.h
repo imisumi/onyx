@@ -82,7 +82,8 @@ private:
 		GLint location = glGetUniformLocation(programId, name.c_str());
 		if (location == -1)
 		{
-			LOG_ERROR("Warning: uniform '{0}' doesn't exist!", name);
+			// LOG_ERROR("Warning: uniform '{0}' doesn't exist!", name);
+			LOG_ERROR("Warning: uniform '{0}' doesn't exist in shader '{1}'!", name, static_cast<DerivedShader *>(this)->GetName());
 			return -1;
 		}
 

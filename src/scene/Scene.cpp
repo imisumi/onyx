@@ -327,6 +327,7 @@ void Scene::RenderUI()
 
 void Scene::RenderViewport()
 {
+	return ;
 	{
 		std::shared_ptr<Shader> cubeShader = m_ShaderLibrary->Get("CubeNormalShader");
 		cubeShader->Bind();
@@ -446,7 +447,7 @@ void Scene::Render()
 			{
 				glm::mat4 meshMatrix = glm::inverse(mesh.invModelMatrix);
 				m_ComputeShader->Use();
-				m_ComputeShader->SetMat4("model", meshMatrix);
+				// m_ComputeShader->SetMat4("model", meshMatrix);
 				m_ComputeShader->SetUnsignedInt("meshIndex", index);
 
 				m_ComputeShader->Dispatch((totalNodes + 31) / 32, 1, 1);
@@ -497,7 +498,10 @@ void Scene::Render()
 		{
 			const auto &meshInfo = m_MeshInfos[i];
 
+			glm::mat4 meshMatrix = glm::inverse(meshInfo.invModelMatrix);
+
 			m_Shader->SetUnsignedInt("meshIndex", static_cast<uint32_t>(i));
+			m_Shader->SetMat4("model", meshMatrix);
 
 			Renderer::SubmitInstancedWireframe(Mesh::CreateWireframeCube()->GetVertexArray(), meshInfo.numFaces);
 		}

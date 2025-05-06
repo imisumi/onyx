@@ -136,7 +136,7 @@ Application::Application()
 	MY_ASSERT(!s_Instance, "Application already exists!");
 	s_Instance = this;
 
-	m_Window = Window::Create("Onyx", 2560, 1440, false);
+	m_Window = Window::Create("Onyx", 2560, 1440, true);
 
 	m_ViewportWidth = m_Window->GetWidth();
 	m_ViewportHeight = m_Window->GetHeight();
@@ -339,6 +339,17 @@ void Application::OnUIRender()
 	ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
 	// ImGui::Button("")
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+	if (ImGui::Checkbox("Enable VSync", &m_VSync))
+	{
+		if (m_VSync)
+		{
+			m_Window->SetVSync(true);
+		}
+		else
+		{
+			m_Window->SetVSync(false);
+		}
+	}
 	ImGui::ColorEdit3("clear color", (float *)&m_ClearColor); // Edit 3 floats representing a color
 	ImGui::Text("Viewport Size: %d x %d", m_ViewportWidth, m_ViewportHeight);
 	ImGui::Text("Viewport Focused: %s", m_ViewportFocused ? "true" : "false");
